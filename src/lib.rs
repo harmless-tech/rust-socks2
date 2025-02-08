@@ -1,20 +1,16 @@
 //! SOCKS proxy clients
-#![doc(html_root_url="https://docs.rs/socks/0.3.0")]
-#![warn(missing_docs)]
-
-extern crate byteorder;
-
-#[cfg(unix)]
-extern crate libc;
-#[cfg(windows)]
-extern crate winapi;
+#![warn(clippy::all)]
+// TODO
+// #![warn(missing_docs)]
+#![allow(clippy::missing_errors_doc)]
+//
 
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs};
 use std::vec;
 
-pub use v4::{Socks4Stream, Socks4Listener};
-pub use v5::{Socks5Stream, Socks5Listener, Socks5Datagram};
+pub use v4::{Socks4Listener, Socks4Stream};
+pub use v5::{Socks5Datagram, Socks5Listener, Socks5Stream};
 
 mod v4;
 mod v5;
@@ -37,8 +33,8 @@ impl ToSocketAddrs for TargetAddr {
 
     fn to_socket_addrs(&self) -> io::Result<Iter> {
         let inner = match *self {
-            TargetAddr::Ip(addr) => IterInner::Ip(Some(addr)),
-            TargetAddr::Domain(ref domain, port) => {
+            Self::Ip(addr) => IterInner::Ip(Some(addr)),
+            Self::Domain(ref domain, port) => {
                 let it = (&**domain, port).to_socket_addrs()?;
                 IterInner::Domain(it)
             }
@@ -108,7 +104,7 @@ impl ToTargetAddr for (Ipv6Addr, u16) {
     }
 }
 
-impl<'a> ToTargetAddr for (&'a str, u16) {
+impl ToTargetAddr for (&str, u16) {
     fn to_target_addr(&self) -> io::Result<TargetAddr> {
         // try to parse as an IP first
         if let Ok(addr) = self.0.parse::<Ipv4Addr>() {
@@ -123,7 +119,7 @@ impl<'a> ToTargetAddr for (&'a str, u16) {
     }
 }
 
-impl<'a> ToTargetAddr for &'a str {
+impl ToTargetAddr for &str {
     fn to_target_addr(&self) -> io::Result<TargetAddr> {
         // try to parse as an IP first
         if let Ok(addr) = self.parse::<SocketAddrV4>() {
@@ -136,23 +132,25 @@ impl<'a> ToTargetAddr for &'a str {
 
         // split the string by ':' and convert the second part to u16
         let mut parts_iter = self.rsplitn(2, ':');
-        let port_str = match parts_iter.next() {
-            Some(s) => s,
-            None => {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid socket address"))
-            }
+        let Some(port_str) = parts_iter.next() else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid socket address",
+            ));
         };
 
-        let host = match parts_iter.next() {
-            Some(s) => s,
-            None => {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid socket address"))
-            }
+        let Some(host) = parts_iter.next() else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid socket address",
+            ));
         };
 
-        let port: u16 = match port_str.parse() {
-            Ok(p) => p,
-            Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid port value")),
+        let Some(port): Option<u16> = port_str.parse().ok() else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid port value",
+            ));
         };
 
         (host, port).to_target_addr()

@@ -9,7 +9,7 @@ use std::{
     ptr,
 };
 
-use crate::{writev::WritevExt, TargetAddr, ToTargetAddr};
+use crate::{io_ext::IOVecExt, TargetAddr, ToTargetAddr};
 
 const MAX_ADDR_LEN: usize = 260;
 
@@ -672,7 +672,6 @@ mod test {
     }
 
     #[test]
-    #[allow(clippy::cast_possible_truncation)]
     fn associate_long() {
         let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15412").unwrap();
         let socket_addr = "127.0.0.1:15413";

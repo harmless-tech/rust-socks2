@@ -14,9 +14,9 @@ use std::{
 pub use v4::{Socks4Listener, Socks4Stream};
 pub use v5::{Socks5Datagram, Socks5Listener, Socks5Stream};
 
+mod io_ext;
 mod v4;
 mod v5;
-mod writev;
 
 /// A description of a connection target.
 #[derive(Debug, Clone)]

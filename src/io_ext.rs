@@ -1,20 +1,20 @@
 use std::{io, net::UdpSocket};
 
-pub trait WritevExt {
+const VEC_SIZE: usize = 2;
+
+pub trait IOVecExt {
     fn writev(&self, bufs: [&[u8]; 2]) -> io::Result<usize>;
     fn readv(&self, bufs: [&mut [u8]; 2]) -> io::Result<usize>;
 }
-
-const VEC_SIZE: usize = 2;
 
 #[cfg(unix)]
 mod imp {
     use std::os::unix::io::AsRawFd;
 
-    use super::{io, UdpSocket, WritevExt, VEC_SIZE};
+    use super::{io, IOVecExt, UdpSocket, VEC_SIZE};
 
     // TODO: Make iovecs pointer casts the same???
-    impl WritevExt for UdpSocket {
+    impl IOVecExt for UdpSocket {
         fn writev(&self, bufs: [&[u8]; VEC_SIZE]) -> io::Result<usize> {
             let iovecs: [libc::iovec; VEC_SIZE] = [
                 libc::iovec {

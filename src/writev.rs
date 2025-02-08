@@ -45,7 +45,8 @@ mod imp {
                 },
             ];
             // SAFETY: All params are setup in this function safely.
-            let r = unsafe { libc::readv(self.as_raw_fd(), iovecs.as_mut_ptr(), iovecs.len() as _) };
+            let r =
+                unsafe { libc::readv(self.as_raw_fd(), iovecs.as_mut_ptr(), iovecs.len() as _) };
             if r < 0 {
                 Err(io::Error::last_os_error())
             } else {

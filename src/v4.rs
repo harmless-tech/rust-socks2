@@ -1,6 +1,8 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs};
+use std::{
+    io::{self, Read, Write},
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs},
+};
 
 use crate::{TargetAddr, ToTargetAddr};
 
@@ -225,8 +227,10 @@ impl Socks4Listener {
 
 #[cfg(test)]
 mod test {
-    use std::io::{Read, Write};
-    use std::net::{SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs};
+    use std::{
+        io::{Read, Write},
+        net::{SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
+    };
 
     use super::*;
 
@@ -236,11 +240,10 @@ mod test {
         "google.com:80"
             .to_socket_addrs()
             .unwrap()
-            .filter_map(|a| match a {
+            .find_map(|a| match a {
                 SocketAddr::V4(a) => Some(a),
                 SocketAddr::V6(_) => None,
             })
-            .next()
             .unwrap()
     }
 

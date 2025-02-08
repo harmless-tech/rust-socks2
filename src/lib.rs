@@ -1,13 +1,14 @@
 //! SOCKS proxy clients
 #![warn(clippy::all)]
 // TODO
-// #![warn(missing_docs)]
 #![allow(clippy::missing_errors_doc)]
 //
 
-use std::io;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs};
-use std::vec;
+use std::{
+    io,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
+    vec,
+};
 
 pub use v4::{Socks4Listener, Socks4Stream};
 pub use v5::{Socks5Datagram, Socks5Listener, Socks5Stream};

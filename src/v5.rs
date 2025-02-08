@@ -1,13 +1,15 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::cmp;
-use std::io::{self, Read, Write};
-use std::net::{
-    Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs, UdpSocket,
+use std::{
+    cmp,
+    io::{self, Read, Write},
+    net::{
+        Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs,
+        UdpSocket,
+    },
+    ptr,
 };
-use std::ptr;
 
-use crate::writev::WritevExt;
-use crate::{TargetAddr, ToTargetAddr};
+use crate::{writev::WritevExt, TargetAddr, ToTargetAddr};
 
 const MAX_ADDR_LEN: usize = 260;
 
@@ -536,8 +538,10 @@ impl Socks5Datagram {
 
 #[cfg(test)]
 mod test {
-    use std::io::{Read, Write};
-    use std::net::{TcpStream, ToSocketAddrs, UdpSocket};
+    use std::{
+        io::{Read, Write},
+        net::{TcpStream, ToSocketAddrs, UdpSocket},
+    };
 
     use super::*;
 
@@ -636,7 +640,7 @@ mod test {
     #[test]
     fn associate_no_auth() {
         let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15410").unwrap();
-        associate(socks, "127.0.0.1:15411");
+        associate(&socks, "127.0.0.1:15411");
     }
 
     #[test]
@@ -648,10 +652,10 @@ mod test {
             "testpass",
         )
         .unwrap();
-        associate(socks, "127.0.0.1:15415");
+        associate(&socks, "127.0.0.1:15415");
     }
 
-    fn associate(socks: Socks5Datagram, socket_addr: &str) {
+    fn associate(socks: &Socks5Datagram, socket_addr: &str) {
         let socket = UdpSocket::bind(socket_addr).unwrap();
 
         socks.send_to(b"hello world!", &socket_addr).unwrap();
@@ -668,6 +672,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn associate_long() {
         let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15412").unwrap();
         let socket_addr = "127.0.0.1:15413";

@@ -76,6 +76,34 @@ jobs:
           RUSTDOCFLAGS: -Dwarnings
         run: cargo +${{steps.toolchain.outputs.name}} doc --all-features --verbose --workspace --release
 
+  cargo-msrv:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: stable
+      - uses: cargo-prebuilt/cargo-prebuilt-action@v4
+        with:
+          pkgs: cargo-msrv
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+      - name: MSRV
+        run: cargo msrv verify -- cargo check --verbose
+
   # https://github.com/EmbarkStudios/cargo-deny/issues/324
   cargo-deny:
     runs-on: ubuntu-latest

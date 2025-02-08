@@ -18,9 +18,11 @@ byteorder = "1.5"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# TODO: Update to windows-rs
 [target.'cfg(windows)'.dependencies]
-winapi = { version="0.3.9", features=["winsock2"] }
+windows-sys = { version = "0.59", features = ["Win32_System_IO", "Win32_Networking_WinSock"] }
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lints.clippy]
 cargo = "deny"

@@ -1,12 +1,13 @@
-use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::cmp;
 use std::io::{self, Read, Write};
-use std::net::{SocketAddr, ToSocketAddrs, SocketAddrV4, SocketAddrV6, TcpStream, Ipv4Addr,
-               Ipv6Addr, UdpSocket};
+use std::net::{
+    Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs, UdpSocket,
+};
 use std::ptr;
 
-use {ToTargetAddr, TargetAddr};
-use writev::WritevExt;
+use crate::writev::WritevExt;
+use crate::{TargetAddr, ToTargetAddr};
 
 const MAX_ADDR_LEN: usize = 260;
 
@@ -31,33 +32,63 @@ fn read_addr<R: Read>(socket: &mut R) -> io::Result<TargetAddr> {
             socket.read_exact(&mut ip)?;
             let ip = Ipv6Addr::from(ip);
             let port = socket.read_u16::<BigEndian>()?;
-            Ok(TargetAddr::Ip(SocketAddr::V6(SocketAddrV6::new(ip, port, 0, 0))))
+            Ok(TargetAddr::Ip(SocketAddr::V6(SocketAddrV6::new(
+                ip, port, 0, 0,
+            ))))
         }
-        _ => Err(io::Error::new(io::ErrorKind::Other, "unsupported address type")),
+        _ => Err(io::Error::new(
+            io::ErrorKind::Other,
+            "unsupported address type",
+        )),
     }
 }
 
 fn read_response(socket: &mut TcpStream) -> io::Result<TargetAddr> {
-
     if socket.read_u8()? != 5 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid response version"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid response version",
+        ));
     }
 
     match socket.read_u8()? {
         0 => {}
-        1 => return Err(io::Error::new(io::ErrorKind::Other, "general SOCKS server failure")),
-        2 => return Err(io::Error::new(io::ErrorKind::Other, "connection not allowed by ruleset")),
+        1 => {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "general SOCKS server failure",
+            ))
+        }
+        2 => {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "connection not allowed by ruleset",
+            ))
+        }
         3 => return Err(io::Error::new(io::ErrorKind::Other, "network unreachable")),
         4 => return Err(io::Error::new(io::ErrorKind::Other, "host unreachable")),
         5 => return Err(io::Error::new(io::ErrorKind::Other, "connection refused")),
         6 => return Err(io::Error::new(io::ErrorKind::Other, "TTL expired")),
-        7 => return Err(io::Error::new(io::ErrorKind::Other, "command not supported")),
-        8 => return Err(io::Error::new(io::ErrorKind::Other, "address kind not supported")),
+        7 => {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "command not supported",
+            ))
+        }
+        8 => {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "address kind not supported",
+            ))
+        }
         _ => return Err(io::Error::new(io::ErrorKind::Other, "unknown error")),
     }
 
     if socket.read_u8()? != 0 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid reserved byte"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid reserved byte",
+        ));
     }
 
     read_addr(socket)
@@ -67,23 +98,32 @@ fn write_addr(mut packet: &mut [u8], target: &TargetAddr) -> io::Result<usize> {
     let start_len = packet.len();
     match *target {
         TargetAddr::Ip(SocketAddr::V4(addr)) => {
-            packet.write_u8(1).unwrap();
-            packet.write_u32::<BigEndian>((*addr.ip()).into()).unwrap();
-            packet.write_u16::<BigEndian>(addr.port()).unwrap();
+            packet.write_u8(1)?;
+            packet.write_u32::<BigEndian>((*addr.ip()).into())?;
+            packet.write_u16::<BigEndian>(addr.port())?;
         }
         TargetAddr::Ip(SocketAddr::V6(addr)) => {
-            packet.write_u8(4).unwrap();
-            packet.write_all(&addr.ip().octets()).unwrap();
-            packet.write_u16::<BigEndian>(addr.port()).unwrap();
+            packet.write_u8(4)?;
+            packet.write_all(&addr.ip().octets())?;
+            packet.write_u16::<BigEndian>(addr.port())?;
         }
         TargetAddr::Domain(ref domain, port) => {
-            packet.write_u8(3).unwrap();
-            if domain.len() > u8::max_value() as usize {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "domain name too long"));
+            packet.write_u8(3)?;
+            if domain.is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "domain name cannot be empty",
+                ));
             }
-            packet.write_u8(domain.len() as u8).unwrap();
-            packet.write_all(domain.as_bytes()).unwrap();
-            packet.write_u16::<BigEndian>(port).unwrap();
+            if domain.len() > u8::MAX as usize {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "domain name too long",
+                ));
+            }
+            packet.write_u8(domain.len() as u8)?;
+            packet.write_all(domain.as_bytes())?;
+            packet.write_u16::<BigEndian>(port)?;
         }
     }
 
@@ -93,24 +133,23 @@ fn write_addr(mut packet: &mut [u8], target: &TargetAddr) -> io::Result<usize> {
 /// Authentication methods
 #[derive(Debug)]
 enum Authentication<'a> {
-    Password { username: &'a str, password: &'a str },
-    None
+    Password {
+        username: &'a str,
+        password: &'a str,
+    },
+    None,
 }
 
-impl<'a> Authentication<'a> {
-    fn id(&self) -> u8 {
+impl Authentication<'_> {
+    const fn id(&self) -> u8 {
         match *self {
             Authentication::Password { .. } => 2,
-            Authentication::None => 0
+            Authentication::None => 0,
         }
     }
 
-    fn is_no_auth(&self) -> bool {
-        if let Authentication::None = *self {
-            true
-        } else {
-            false
-        }
+    const fn is_no_auth(&self) -> bool {
+        matches!(*self, Authentication::None)
     }
 }
 
@@ -123,26 +162,39 @@ pub struct Socks5Stream {
 
 impl Socks5Stream {
     /// Connects to a target server through a SOCKS5 proxy.
-    pub fn connect<T, U>(proxy: T, target: U) -> io::Result<Socks5Stream>
-        where T: ToSocketAddrs,
-              U: ToTargetAddr
+    pub fn connect<T, U>(proxy: T, target: &U) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToTargetAddr,
     {
         Self::connect_raw(1, proxy, target, &Authentication::None)
     }
 
     /// Connects to a target server through a SOCKS5 proxy using given
     /// username and password.
-    pub fn connect_with_password<T, U>(proxy: T, target: U, username: &str, password: &str) -> io::Result<Socks5Stream>
-        where T: ToSocketAddrs,
-              U: ToTargetAddr
+    pub fn connect_with_password<T, U>(
+        proxy: T,
+        target: &U,
+        username: &str,
+        password: &str,
+    ) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToTargetAddr,
     {
         let auth = Authentication::Password { username, password };
         Self::connect_raw(1, proxy, target, &auth)
     }
 
-    fn connect_raw<T, U>(command: u8, proxy: T, target: U, auth: &Authentication) -> io::Result<Socks5Stream>
-        where T: ToSocketAddrs,
-              U: ToTargetAddr
+    fn connect_raw<T, U>(
+        command: u8,
+        proxy: T,
+        target: &U,
+        auth: &Authentication,
+    ) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToTargetAddr,
     {
         let mut socket = TcpStream::connect(proxy)?;
 
@@ -150,10 +202,10 @@ impl Socks5Stream {
 
         let packet_len = if auth.is_no_auth() { 3 } else { 4 };
         let packet = [
-            5, // protocol version
+            5,                                     // protocol version
             if auth.is_no_auth() { 1 } else { 2 }, // method count
-            auth.id(), // method
-            0, // no auth (always offered)
+            auth.id(),                             // method
+            0,                                     // no auth (always offered)
         ];
         socket.write_all(&packet[..packet_len])?;
 
@@ -163,22 +215,28 @@ impl Socks5Stream {
         let selected_method = buf[1];
 
         if response_version != 5 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid response version"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid response version",
+            ));
         }
 
         if selected_method == 0xff {
-            return Err(io::Error::new(io::ErrorKind::Other, "no acceptable auth methods"))
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "no acceptable auth methods",
+            ));
         }
 
         if selected_method != auth.id() && selected_method != Authentication::None.id() {
-            return Err(io::Error::new(io::ErrorKind::Other, "unknown auth method"))
+            return Err(io::Error::new(io::ErrorKind::Other, "unknown auth method"));
         }
 
         match *auth {
             Authentication::Password { username, password } if selected_method == auth.id() => {
-                Self::password_authentication(&mut socket, username, password)?
-            },
-            _ => ()
+                Self::password_authentication(&mut socket, username, password)?;
+            }
+            _ => (),
         }
 
         let mut packet = [0; MAX_ADDR_LEN + 3];
@@ -190,18 +248,26 @@ impl Socks5Stream {
 
         let proxy_addr = read_response(&mut socket)?;
 
-        Ok(Socks5Stream {
-            socket: socket,
-            proxy_addr: proxy_addr,
-        })
+        Ok(Self { socket, proxy_addr })
     }
 
-    fn password_authentication(socket: &mut TcpStream, username: &str, password: &str) -> io::Result<()> {
-        if username.len() < 1 || username.len() > 255 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid username"))
+    fn password_authentication(
+        socket: &mut TcpStream,
+        username: &str,
+        password: &str,
+    ) -> io::Result<()> {
+        // TODO: Maybe change up how lengths work?
+        if username.is_empty() || username.len() > u8::MAX as usize {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid username",
+            ));
         };
-        if password.len() < 1 || password.len() > 255 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid password"))
+        if password.is_empty() || password.len() > u8::MAX as usize {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid password",
+            ));
         }
 
         let mut packet = [0; 515];
@@ -216,10 +282,16 @@ impl Socks5Stream {
         let mut buf = [0; 2];
         socket.read_exact(&mut buf)?;
         if buf[0] != 1 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid response version"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid response version",
+            ));
         }
         if buf[1] != 0 {
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "password authentication failed"));
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "password authentication failed",
+            ));
         }
 
         Ok(())
@@ -227,12 +299,14 @@ impl Socks5Stream {
 
     /// Returns the proxy-side address of the connection between the proxy and
     /// target server.
-    pub fn proxy_addr(&self) -> &TargetAddr {
+    #[must_use]
+    pub const fn proxy_addr(&self) -> &TargetAddr {
         &self.proxy_addr
     }
 
     /// Returns a shared reference to the inner `TcpStream`.
-    pub fn get_ref(&self) -> &TcpStream {
+    #[must_use]
+    pub const fn get_ref(&self) -> &TcpStream {
         &self.socket
     }
 
@@ -242,6 +316,7 @@ impl Socks5Stream {
     }
 
     /// Consumes the `Socks5Stream`, returning the inner `TcpStream`.
+    #[must_use]
     pub fn into_inner(self) -> TcpStream {
         self.socket
     }
@@ -253,7 +328,7 @@ impl Read for Socks5Stream {
     }
 }
 
-impl<'a> Read for &'a Socks5Stream {
+impl Read for &Socks5Stream {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         (&self.socket).read(buf)
     }
@@ -269,7 +344,7 @@ impl Write for Socks5Stream {
     }
 }
 
-impl<'a> Write for &'a Socks5Stream {
+impl Write for &Socks5Stream {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         (&self.socket).write(buf)
     }
@@ -288,9 +363,10 @@ impl Socks5Listener {
     ///
     /// The proxy will filter incoming connections based on the value of
     /// `target`.
-    pub fn bind<T, U>(proxy: T, target: U) -> io::Result<Socks5Listener>
-        where T: ToSocketAddrs,
-              U: ToTargetAddr
+    pub fn bind<T, U>(proxy: T, target: &U) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToTargetAddr,
     {
         Socks5Stream::connect_raw(2, proxy, target, &Authentication::None).map(Socks5Listener)
     }
@@ -299,9 +375,15 @@ impl Socks5Listener {
     ///
     /// The proxy will filter incoming connections based on the value of
     /// `target`.
-    pub fn bind_with_password<T, U>(proxy: T, target: U, username: &str, password: &str) -> io::Result<Socks5Listener>
-        where T: ToSocketAddrs,
-              U: ToTargetAddr
+    pub fn bind_with_password<T, U>(
+        proxy: T,
+        target: &U,
+        username: &str,
+        password: &str,
+    ) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToTargetAddr,
     {
         let auth = Authentication::Password { username, password };
         Socks5Stream::connect_raw(2, proxy, target, &auth).map(Socks5Listener)
@@ -311,7 +393,8 @@ impl Socks5Listener {
     ///
     /// This should be forwarded to the remote process, which should open a
     /// connection to it.
-    pub fn proxy_addr(&self) -> &TargetAddr {
+    #[must_use]
+    pub const fn proxy_addr(&self) -> &TargetAddr {
         &self.0.proxy_addr
     }
 
@@ -336,39 +419,47 @@ pub struct Socks5Datagram {
 impl Socks5Datagram {
     /// Creates a UDP socket bound to the specified address which will have its
     /// traffic routed through the specified proxy.
-    pub fn bind<T, U>(proxy: T, addr: U) -> io::Result<Socks5Datagram>
-        where T: ToSocketAddrs,
-              U: ToSocketAddrs
+    pub fn bind<T, U>(proxy: T, addr: U) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToSocketAddrs,
     {
         Self::bind_internal(proxy, addr, &Authentication::None)
     }
     /// Creates a UDP socket bound to the specified address which will have its
     /// traffic routed through the specified proxy. The given username and password
     /// is used to authenticate to the SOCKS proxy.
-    pub fn bind_with_password<T, U>(proxy: T, addr: U, username: &str, password: &str) -> io::Result<Socks5Datagram>
-        where T: ToSocketAddrs,
-              U: ToSocketAddrs
+    pub fn bind_with_password<T, U>(
+        proxy: T,
+        addr: U,
+        username: &str,
+        password: &str,
+    ) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToSocketAddrs,
     {
         let auth = Authentication::Password { username, password };
         Self::bind_internal(proxy, addr, &auth)
     }
 
-    fn bind_internal<T, U>(proxy: T, addr: U, auth: &Authentication) -> io::Result<Socks5Datagram>
-        where T: ToSocketAddrs,
-              U: ToSocketAddrs
+    fn bind_internal<T, U>(proxy: T, addr: U, auth: &Authentication) -> io::Result<Self>
+    where
+        T: ToSocketAddrs,
+        U: ToSocketAddrs,
     {
         // we don't know what our IP is from the perspective of the proxy, so
         // don't try to pass `addr` in here.
-        let dst = TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0)));
-        let stream = Socks5Stream::connect_raw(3, proxy, dst, auth)?;
+        let dst = TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::new(0, 0, 0, 0),
+            0,
+        )));
+        let stream = Socks5Stream::connect_raw(3, proxy, &dst, auth)?;
 
         let socket = UdpSocket::bind(addr)?;
         socket.connect(&stream.proxy_addr)?;
 
-        Ok(Socks5Datagram {
-            socket: socket,
-            stream: stream,
-        })
+        Ok(Self { socket, stream })
     }
 
     /// Like `UdpSocket::send_to`.
@@ -378,8 +469,9 @@ impl Socks5Datagram {
     /// The SOCKS protocol inserts a header at the beginning of the message. The
     /// header will be 10 bytes for an IPv4 address, 22 bytes for an IPv6
     /// address, and 7 bytes plus the length of the domain for a domain address.
-    pub fn send_to<A>(&self, buf: &[u8], addr: A) -> io::Result<usize>
-        where A: ToTargetAddr
+    pub fn send_to<A>(&self, buf: &[u8], addr: &A) -> io::Result<usize>
+    where
+        A: ToTargetAddr,
     {
         let addr = addr.to_target_addr()?;
 
@@ -402,15 +494,21 @@ impl Socks5Datagram {
         let mut header = &mut &header[..header_len];
 
         if header.read_u16::<BigEndian>()? != 0 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid reserved bytes"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid reserved bytes",
+            ));
         }
         if header.read_u8()? != 0 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid fragment id"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid fragment id",
+            ));
         }
         let addr = read_addr(&mut header)?;
 
         unsafe {
-            ptr::copy(buf.as_ptr(), buf.as_mut_ptr().offset(header.len() as isize), overflow);
+            ptr::copy(buf.as_ptr(), buf.as_mut_ptr().add(header.len()), overflow);
         }
         buf[..header.len()].copy_from_slice(header);
 
@@ -419,12 +517,14 @@ impl Socks5Datagram {
 
     /// Returns the address of the proxy-side UDP socket through which all
     /// messages will be routed.
-    pub fn proxy_addr(&self) -> &TargetAddr {
+    #[must_use]
+    pub const fn proxy_addr(&self) -> &TargetAddr {
         &self.stream.proxy_addr
     }
 
     /// Returns a shared reference to the inner socket.
-    pub fn get_ref(&self) -> &UdpSocket {
+    #[must_use]
+    pub const fn get_ref(&self) -> &UdpSocket {
         &self.socket
     }
 
@@ -436,19 +536,18 @@ impl Socks5Datagram {
 
 #[cfg(test)]
 mod test {
-    use std::error::Error;
     use std::io::{Read, Write};
-    use std::net::{ToSocketAddrs, TcpStream, UdpSocket};
+    use std::net::{TcpStream, ToSocketAddrs, UdpSocket};
 
     use super::*;
 
-    const SOCKS_PROXY_NO_AUTH_ONLY: &str = "127.0.0.1:1080";
-    const SOCKS_PROXY_PASSWD_ONLY: &str = "127.0.0.1:1081";
+    const SOCKS_PROXY_NO_AUTH_ONLY: &str = "127.0.0.1:1084";
+    const SOCKS_PROXY_PASSWD_ONLY: &str = "127.0.0.1:1085";
 
     #[test]
     fn google_no_auth() {
         let addr = "google.com:80".to_socket_addrs().unwrap().next().unwrap();
-        let socket = Socks5Stream::connect(SOCKS_PROXY_NO_AUTH_ONLY, addr).unwrap();
+        let socket = Socks5Stream::connect(SOCKS_PROXY_NO_AUTH_ONLY, &addr).unwrap();
         google(socket);
     }
 
@@ -457,10 +556,11 @@ mod test {
         let addr = "google.com:80".to_socket_addrs().unwrap().next().unwrap();
         let socket = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             "testuser",
-            "testpass"
-        ).unwrap();
+            "testpass",
+        )
+        .unwrap();
         google(socket);
     }
 
@@ -476,7 +576,7 @@ mod test {
 
     #[test]
     fn google_dns() {
-        let mut socket = Socks5Stream::connect(SOCKS_PROXY_NO_AUTH_ONLY, "google.com:80").unwrap();
+        let mut socket = Socks5Stream::connect(SOCKS_PROXY_NO_AUTH_ONLY, &"google.com:80").unwrap();
 
         socket.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
         let mut result = vec![];
@@ -490,7 +590,7 @@ mod test {
     #[test]
     fn bind_no_auth() {
         let addr = find_address();
-        let listener = Socks5Listener::bind(SOCKS_PROXY_NO_AUTH_ONLY, addr).unwrap();
+        let listener = Socks5Listener::bind(SOCKS_PROXY_NO_AUTH_ONLY, &addr).unwrap();
         bind(listener);
     }
 
@@ -499,22 +599,20 @@ mod test {
         let addr = find_address();
         let listener = Socks5Listener::bind_with_password(
             SOCKS_PROXY_NO_AUTH_ONLY,
-            addr,
+            &addr,
             "unused_and_invalid_username",
-            "unused_and_invalid_password"
-        ).unwrap();
+            "unused_and_invalid_password",
+        )
+        .unwrap();
         bind(listener);
     }
 
     #[test]
     fn bind_with_password() {
         let addr = find_address();
-        let listener = Socks5Listener::bind_with_password(
-            "127.0.0.1:1081",
-            addr,
-            "testuser",
-            "testpass"
-        ).unwrap();
+        let listener =
+            Socks5Listener::bind_with_password("127.0.0.1:1081", &addr, "testuser", "testpass")
+                .unwrap();
         bind(listener);
     }
 
@@ -531,7 +629,7 @@ mod test {
 
     // First figure out our local address that we'll be connecting from
     fn find_address() -> TargetAddr {
-        let socket = Socks5Stream::connect(SOCKS_PROXY_NO_AUTH_ONLY, "google.com:80").unwrap();
+        let socket = Socks5Stream::connect(SOCKS_PROXY_NO_AUTH_ONLY, &"google.com:80").unwrap();
         socket.proxy_addr().to_owned()
     }
 
@@ -547,15 +645,16 @@ mod test {
             SOCKS_PROXY_PASSWD_ONLY,
             "127.0.0.1:15414",
             "testuser",
-            "testpass"
-        ).unwrap();
+            "testpass",
+        )
+        .unwrap();
         associate(socks, "127.0.0.1:15415");
     }
 
     fn associate(socks: Socks5Datagram, socket_addr: &str) {
         let socket = UdpSocket::bind(socket_addr).unwrap();
 
-        socks.send_to(b"hello world!", socket_addr).unwrap();
+        socks.send_to(b"hello world!", &socket_addr).unwrap();
         let mut buf = [0; 13];
         let (len, addr) = socket.recv_from(&mut buf).unwrap();
         assert_eq!(len, 12);
@@ -579,7 +678,7 @@ mod test {
             msg.push(i as u8);
         }
 
-        socks.send_to(&msg, socket_addr).unwrap();
+        socks.send_to(&msg, &socket_addr).unwrap();
         let mut buf = vec![0; msg.len() + 1];
         let (len, addr) = socket.recv_from(&mut buf).unwrap();
         assert_eq!(len, msg.len());
@@ -598,22 +697,23 @@ mod test {
         let addr = "google.com:80".to_socket_addrs().unwrap().next().unwrap();
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             "testuser",
-            "invalid"
-        ).unwrap_err();
+            "invalid",
+        )
+        .unwrap_err();
 
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
-        assert_eq!(err.description(), "password authentication failed");
+        assert_eq!(err.to_string(), "password authentication failed");
     }
 
     #[test]
     fn auth_method_not_supported() {
         let addr = "google.com:80".to_socket_addrs().unwrap().next().unwrap();
-        let err = Socks5Stream::connect(SOCKS_PROXY_PASSWD_ONLY, addr).unwrap_err();
+        let err = Socks5Stream::connect(SOCKS_PROXY_PASSWD_ONLY, &addr).unwrap_err();
 
         assert_eq!(err.kind(), io::ErrorKind::Other);
-        assert_eq!(err.description(), "no acceptable auth methods");
+        assert_eq!(err.to_string(), "no acceptable auth methods");
     }
 
     #[test]
@@ -622,57 +722,63 @@ mod test {
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             &string_of_size(1),
-            &string_of_size(1)
-        ).unwrap_err();
+            &string_of_size(1),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
-        assert_eq!(err.description(), "password authentication failed");
+        assert_eq!(err.to_string(), "password authentication failed");
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             &string_of_size(255),
-            &string_of_size(255)
-        ).unwrap_err();
+            &string_of_size(255),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
-        assert_eq!(err.description(), "password authentication failed");
+        assert_eq!(err.to_string(), "password authentication failed");
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             &string_of_size(0),
-            &string_of_size(255)
-        ).unwrap_err();
+            &string_of_size(255),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.description(), "invalid username");
+        assert_eq!(err.to_string(), "invalid username");
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             &string_of_size(256),
-            &string_of_size(255)
-        ).unwrap_err();
+            &string_of_size(255),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.description(), "invalid username");
+        assert_eq!(err.to_string(), "invalid username");
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             &string_of_size(255),
-            &string_of_size(0)
-        ).unwrap_err();
+            &string_of_size(0),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.description(), "invalid password");
+        assert_eq!(err.to_string(), "invalid password");
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            addr,
+            &addr,
             &string_of_size(255),
-            &string_of_size(256)
-        ).unwrap_err();
+            &string_of_size(256),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.description(), "invalid password");
+        assert_eq!(err.to_string(), "invalid password");
     }
 
     fn string_of_size(size: usize) -> String {

@@ -1,0 +1,73 @@
+name: Rust Release
+
+on:
+  push:
+    tags:
+      - "v**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    outputs:
+      tag: ${{ github.ref_name }}
+      name: ${{ github.ref_name }}
+      prerelease: ${{ steps.regex-tag.outputs.match == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: KyoriPowered/action-regex-match@v4
+        id: regex-tag
+        with:
+          text: ${{ github.ref }}
+          regex: '^refs\/tags\/v\d+\.\d+\.\d+$'
+
+
+  publish-crates-io:
+    if: ${{ ! contains(github.ref, '-dev') }}
+    runs-on: ubuntu-latest
+    needs:
+      - release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: stable
+      - name: Publish
+        run: cargo +${{steps.toolchain.outputs.name}} publish --verbose --token "${CRATES_TOKEN}"
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+
+  publish-github-com:
+    runs-on: ubuntu-latest
+    needs:
+      - release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: stable
+      - name: Build Release
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --release
+      - name: Create and push artifacts to release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ needs.release.outputs.tag }}
+          name: ${{ needs.release.outputs.name }}
+          allowUpdates: true
+          prerelease: ${{ needs.release.outputs.prerelease }}
+          body: ""

@@ -1,0 +1,73 @@
+name: Rust Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: { }
+
+# TODO: Add testing!
+jobs:
+  build-versions:
+    strategy:
+      matrix:
+        rust-version: [ stable, beta, nightly, 1.71.1 ]
+        info:
+          - os: macos-latest
+          - os: ubuntu-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.info.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: ${{ matrix.rust-version }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo +${{steps.toolchain.outputs.name}} build  --verbose --workspace
+      - name: Build release
+        run: cargo +${{steps.toolchain.outputs.name}} build  --verbose --workspace --release
+
+  build-ink-cross:
+    strategy:
+      matrix:
+        rust-version: [ stable ]
+        info:
+          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
+          - target: armv7-unknown-linux-gnueabihf
+          - target: armv7-unknown-linux-musleabihf
+          - target: powerpc64le-unknown-linux-gnu
+          - target: powerpc64-unknown-linux-gnu
+          - target: riscv64gc-unknown-linux-gnu
+          - target: s390x-unknown-linux-gnu
+          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
+          - target: x86_64-unknown-freebsd
+          - target: x86_64-unknown-netbsd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ink-build-${{ matrix.info.target }}
+      - name: Build with ink cross
+        run: |
+          docker run --rm \
+          --userns host --user "$(id -u)":"$(id -g)" \
+          -v "$HOME"/.cargo/registry:/usr/local/cargo/registry \
+          -v ./:/project \
+          ghcr.io/cargo-prebuilt/ink-cross:${{ matrix.rust-version }}-${{ matrix.info.target }} \
+          build --verbose --workspace --target ${{ matrix.info.target }}

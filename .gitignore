@@ -1,4 +1,8 @@
 target
-Cargo.lock
+
 .idea
+.vscode
+.zed
 *.iml
+
+.DS_Store

@@ -30,6 +30,7 @@ jobs:
 
   clippy:
     strategy:
+      fail-fast: false
       matrix:
         rust-version: [ stable ]
         info:

@@ -16,6 +16,7 @@ permissions: { }
 # TODO: Add testing!
 jobs:
   build-versions:
+    fail-fast: false
     strategy:
       matrix:
         rust-version: [ stable, beta, nightly, 1.71.1 ]
@@ -63,11 +64,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ink-build-${{ matrix.info.target }}
+      - name: Permission fix cargo registry
+        run: chown "$(id -u)":"$(id -g)" -R "$HOME/.cargo/registry"
       - name: Build with ink cross
         run: |
           docker run --rm \
           --userns host --user "$(id -u)":"$(id -g)" \
-          -v "$HOME"/.cargo/registry:/usr/local/cargo/registry \
+          -v "$HOME/.cargo/registry:/usr/local/cargo/registry" \
           -v ./:/project \
           ghcr.io/cargo-prebuilt/ink-cross:${{ matrix.rust-version }}-${{ matrix.info.target }} \
           build --verbose --workspace --target ${{ matrix.info.target }}

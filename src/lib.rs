@@ -1,8 +1,9 @@
 //! SOCKS proxy clients
-#![warn(clippy::all)]
-// TODO
+#![deny(clippy::all)]
+/*** TODO ***/
 #![allow(clippy::missing_errors_doc)]
-//
+// #![deny(clippy::unwrap_used)] // TODO: This library should try to never panic!
+/*** END TODO ***/
 
 use std::{
     io,

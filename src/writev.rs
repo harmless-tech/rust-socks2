@@ -5,16 +5,18 @@ pub trait WritevExt {
     fn readv(&self, bufs: [&mut [u8]; 2]) -> io::Result<usize>;
 }
 
+const VEC_SIZE: usize = 2;
+
 #[cfg(unix)]
 mod imp {
     use std::os::unix::io::AsRawFd;
 
-    use super::{io, UdpSocket, WritevExt};
+    use super::{io, UdpSocket, WritevExt, VEC_SIZE};
 
     // TODO: Make iovecs pointer casts the same???
     impl WritevExt for UdpSocket {
-        fn writev(&self, bufs: [&[u8]; 2]) -> io::Result<usize> {
-            let iovecs = [
+        fn writev(&self, bufs: [&[u8]; VEC_SIZE]) -> io::Result<usize> {
+            let iovecs: [libc::iovec; VEC_SIZE] = [
                 libc::iovec {
                     iov_base: bufs[0].as_ptr().cast_mut().cast(),
                     iov_len: bufs[0].len(),
@@ -25,7 +27,9 @@ mod imp {
                 },
             ];
             // SAFETY: All params are setup in this function safely.
-            let r = unsafe { libc::writev(self.as_raw_fd(), iovecs.as_ptr(), iovecs.len() as _) };
+            #[allow(clippy::cast_possible_truncation)] // SAFETY: Length is always VEC_SIZE.
+            #[allow(clippy::cast_possible_wrap)]
+            let r = unsafe { libc::writev(self.as_raw_fd(), iovecs.as_ptr(), VEC_SIZE as _) };
             if r < 0 {
                 Err(io::Error::last_os_error())
             } else {
@@ -33,8 +37,8 @@ mod imp {
             }
         }
 
-        fn readv(&self, bufs: [&mut [u8]; 2]) -> io::Result<usize> {
-            let mut iovecs = [
+        fn readv(&self, bufs: [&mut [u8]; VEC_SIZE]) -> io::Result<usize> {
+            let mut iovecs: [libc::iovec; VEC_SIZE] = [
                 libc::iovec {
                     iov_base: bufs[0].as_mut_ptr().cast(),
                     iov_len: bufs[0].len(),
@@ -45,8 +49,9 @@ mod imp {
                 },
             ];
             // SAFETY: All params are setup in this function safely.
-            let r =
-                unsafe { libc::readv(self.as_raw_fd(), iovecs.as_mut_ptr(), iovecs.len() as _) };
+            #[allow(clippy::cast_possible_truncation)] // SAFETY: Length is always VEC_SIZE.
+            #[allow(clippy::cast_possible_wrap)]
+            let r = unsafe { libc::readv(self.as_raw_fd(), iovecs.as_mut_ptr(), VEC_SIZE as _) };
             if r < 0 {
                 Err(io::Error::last_os_error())
             } else {
@@ -63,10 +68,10 @@ mod imp {
     use windows_sys::Win32::Networking::WinSock::{WSARecv, WSASend, WSABUF};
 
     impl WritevExt for UdpSocket {
-        fn writev(&self, bufs: [&[u8]; 2]) -> io::Result<usize> {
+        fn writev(&self, bufs: [&[u8]; VEC_SIZE]) -> io::Result<usize> {
             // TODO: Check to make sure length is within a u32!
 
-            let mut wsabufs = [
+            let mut wsabufs: [WSABUF; VEC_SIZE] = [
                 WSABUF {
                     len: bufs[0].len() as _, // TODO: Casts to u32!!!
                     buf: bufs[0].as_ptr().cast_mut(),
@@ -82,7 +87,7 @@ mod imp {
                 WSASend(
                     self.as_raw_socket() as _,
                     wsabufs.as_mut_ptr(),
-                    bufs.len() as _,
+                    VEC_SIZE as _,
                     &mut sent,
                     0,
                     ptr::null_mut(),
@@ -96,10 +101,10 @@ mod imp {
             }
         }
 
-        fn readv(&self, bufs: [&mut [u8]; 2]) -> io::Result<usize> {
+        fn readv(&self, bufs: [&mut [u8]; VEC_SIZE]) -> io::Result<usize> {
             // TODO: Check to make sure length is within a u32!
 
-            let mut wsabufs = [
+            let mut wsabufs: [WSABUF; VEC_SIZE] = [
                 WSABUF {
                     len: bufs[0].len() as _, // TODO: Casts to u32!!!
                     buf: bufs[0].as_mut_ptr(),
@@ -116,7 +121,7 @@ mod imp {
                 WSARecv(
                     self.as_raw_socket() as _,
                     wsabufs.as_mut_ptr(),
-                    bufs.len() as _,
+                    VEC_SIZE as _,
                     &mut recved,
                     &mut flags,
                     ptr::null_mut(),

@@ -103,7 +103,7 @@ jobs:
         with:
           key: msrv
       - name: MSRV
-        run: cargo msrv verify -- cargo check --verbose
+        run: cargo msrv verify --output-format json -- cargo check --verbose
 
   # https://github.com/EmbarkStudios/cargo-deny/issues/324
   cargo-deny:

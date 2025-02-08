@@ -16,8 +16,8 @@ permissions: { }
 # TODO: Add testing!
 jobs:
   build-versions:
-    fail-fast: false
     strategy:
+      fail-fast: false
       matrix:
         rust-version: [ stable, beta, nightly, 1.71.1 ]
         info:

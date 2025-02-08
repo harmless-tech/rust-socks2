@@ -1,3 +1,4 @@
+use crate::{io_ext::IOVecExt, TargetAddr, ToTargetAddr};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
     cmp,
@@ -8,8 +9,6 @@ use std::{
     },
     ptr,
 };
-
-use crate::{io_ext::IOVecExt, TargetAddr, ToTargetAddr};
 
 const MAX_ADDR_LEN: usize = 260;
 

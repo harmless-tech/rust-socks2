@@ -1,10 +1,9 @@
+use crate::{TargetAddr, ToTargetAddr};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
     io::{self, Read, Write},
     net::{Ipv4Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs},
 };
-
-use crate::{TargetAddr, ToTargetAddr};
 
 const NULL_BYTE: u8 = 0;
 

@@ -65,7 +65,7 @@ jobs:
         with:
           key: ink-build-${{ matrix.info.target }}
       - name: Permission fix cargo registry
-        run: chown "$(id -u)":"$(id -g)" -R "$HOME/.cargo/registry"
+        run: mkdir -p "$HOME/.cargo/registry" && chown "$(id -u)":"$(id -g)" -R "$HOME/.cargo/registry"
       - name: Build with ink cross
         run: |
           docker run --rm \

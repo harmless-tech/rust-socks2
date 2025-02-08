@@ -63,11 +63,12 @@ mod imp {
 
 #[cfg(windows)]
 mod imp {
-    use super::*;
     use std::{os::windows::io::AsRawSocket, ptr};
     use windows_sys::Win32::Networking::WinSock::{WSARecv, WSASend, WSABUF};
 
-    impl WritevExt for UdpSocket {
+    use super::{io, IOVecExt, UdpSocket, VEC_SIZE};
+
+    impl IOVecExt for UdpSocket {
         fn writev(&self, bufs: [&[u8]; VEC_SIZE]) -> io::Result<usize> {
             // TODO: Check to make sure length is within a u32!
 

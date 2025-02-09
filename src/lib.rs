@@ -11,9 +11,20 @@ use std::{
     vec,
 };
 
-pub use v4::{Socks4Listener, Socks4Stream};
-pub use v5::{Socks5Datagram, Socks5Listener, Socks5Stream};
+#[cfg(feature = "client")]
+pub use v4::Socks4Stream;
+#[cfg(feature = "client")]
+pub use v5::client::Socks5Stream;
 
+#[cfg(feature = "bind")]
+pub use v4::Socks4Listener;
+#[cfg(feature = "bind")]
+pub use v5::bind::Socks5Listener;
+
+#[cfg(feature = "udp")]
+pub use v5::udp::Socks5Datagram;
+
+#[cfg(feature = "udp")]
 mod io_ext;
 mod v4;
 mod v5;

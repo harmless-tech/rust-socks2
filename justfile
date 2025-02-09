@@ -42,7 +42,7 @@ hack:
     --mount type=bind,source=$HOME/.cargo/registry,target=/usr/local/cargo/registry \
     --entrypoint=/bin/bash \
     ghcr.io/cargo-prebuilt/ink-cross:stable-native \
-    -c 'cargo prebuilt --ci cargo-hack && cargo hack check --each-feature --no-dev-deps --verbose --workspace && cargo hack check --feature-powerse --no-dev-deps --verbose --workspace'
+    -c 'cargo prebuilt --ci cargo-hack && cargo hack check --each-feature --no-dev-deps --verbose --workspace && cargo hack check --feature-powerset --no-dev-deps --verbose --workspace'
 
 msrv:
     docker run -it --rm --pull=always \

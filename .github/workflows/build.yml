@@ -35,9 +35,9 @@ jobs:
           toolchain: ${{ matrix.rust-version }}
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo +${{steps.toolchain.outputs.name}} build  --verbose --workspace
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace
       - name: Build release
-        run: cargo +${{steps.toolchain.outputs.name}} build  --verbose --workspace --release
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --release
 
   build-ink-cross:
     strategy:
@@ -74,3 +74,39 @@ jobs:
           -v ./:/project \
           ghcr.io/cargo-prebuilt/ink-cross:${{ matrix.rust-version }}-${{ matrix.info.target }} \
           build --verbose --workspace --target ${{ matrix.info.target }}
+
+  # TODO: Test all (test-all), test-bind, test-udp
+  test-client:
+    strategy:
+      fail-fast: false
+      matrix:
+        rust-version: [ stable ]
+        info:
+          - os: macos-latest
+          - os: ubuntu-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.info.os }}
+    env:
+      TEST_FEATURES: client
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: ${{ matrix.rust-version }}
+      - uses: cargo-prebuilt/cargo-prebuilt-action@v4
+        with:
+          pkgs: just
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: test-client
+      - name: Test Setup
+        run: just test-setup
+      - name: Test
+        run: cargo +${{steps.toolchain.outputs.name}} test --verbose --workspace --no-default-features --features "$TEST_FEATURES"
+      - name: Test release
+        run: cargo +${{steps.toolchain.outputs.name}} test --verbose --workspace --release --no-default-features --features "$TEST_FEATURES"
+      - name: Test Teardown
+        run: just test-teardown

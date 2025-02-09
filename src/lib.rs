@@ -32,7 +32,7 @@ mod v4;
 mod v5;
 
 /// A description of a connection target.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TargetAddr {
     /// Connect to an IP address.
     Ip(SocketAddr),

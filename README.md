@@ -8,6 +8,74 @@ SOCKS proxy support for Rust.
 
 Fork of [sfackler/rust-socks](https://github.com/sfackler/rust-socks).
 
+## Using
+
+```cargo add socks2```
+
+```toml
+[dependencies]
+socks2 = "0.4"
+```
+
+### Features
+
+#### client
+
+```toml
+[dependencies]
+socks2 = { version = "0.4", default-features = false, features = ["client"] }
+```
+
+```rust
+use socks2::Socks4Stream;
+use socks2::Socks5Stream;
+use std::io::Write;
+
+let mut connection = Socks4Stream::connect(PROXY, &TARGET, "userid").unwrap();
+let buf = [126_u8; 50]
+connection.write(&buf);
+
+let mut connection = Socks5Stream::connect(PROXY, &TARGET).unwrap();
+let buf = [126_u8; 50]
+connection.write(&buf);
+```
+
+#### bind
+
+```toml
+[dependencies]
+socks2 = { version = "0.4", default-features = false, features = ["bind"] }
+```
+
+```rust
+use socks2::Socks4Listener;
+use socks2::Socks5Listener;
+
+let mut connection = Socks4Listener::bin(PROXY, &TARGET, "userid")
+    .unwrap()
+    .accept();
+
+let mut connection = Socks5Listener::bind(PROXY, &TARGET)
+    .unwrap()
+    .accept();
+```
+
+#### udp
+
+```toml
+[dependencies]
+socks2 = { version = "0.4", default-features = false, features = ["udp"] }
+```
+
+```rust
+use socks2::Socks5Datagram;
+use std::io::Write;
+
+let mut connection = Socks5Datagram::bind(PROXY, &TARGET).unwrap();
+let buf = [126_u8; 50]
+connection.send_to(&buf, &OTHER_ADDR);
+```
+
 ## License
 
 Licensed under either of

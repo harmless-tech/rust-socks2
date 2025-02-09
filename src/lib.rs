@@ -12,12 +12,12 @@ use std::{
 };
 
 #[cfg(feature = "client")]
-pub use v4::Socks4Stream;
+pub use v4::client::Socks4Stream;
 #[cfg(feature = "client")]
 pub use v5::client::Socks5Stream;
 
 #[cfg(feature = "bind")]
-pub use v4::Socks4Listener;
+pub use v4::bind::Socks4Listener;
 #[cfg(feature = "bind")]
 pub use v5::bind::Socks5Listener;
 
@@ -26,7 +26,9 @@ pub use v5::udp::Socks5Datagram;
 
 #[cfg(feature = "udp")]
 mod io_ext;
+#[cfg(any(feature = "client", feature = "bind"))]
 mod v4;
+#[cfg(any(feature = "client", feature = "bind", feature = "udp"))]
 mod v5;
 
 /// A description of a connection target.

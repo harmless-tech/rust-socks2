@@ -150,7 +150,7 @@ impl Authentication<'_> {
 }
 
 #[cfg(feature = "client")]
-pub(crate) mod client {
+pub mod client {
     use crate::{
         v5::{read_response, write_addr, Authentication, MAX_ADDR_LEN},
         TargetAddr, ToTargetAddr,
@@ -364,7 +364,7 @@ pub(crate) mod client {
 }
 
 #[cfg(feature = "bind")]
-pub(crate) mod bind {
+pub mod bind {
     use crate::{
         v5::{read_response, Authentication},
         Socks5Stream, TargetAddr, ToTargetAddr,
@@ -427,7 +427,7 @@ pub(crate) mod bind {
 }
 
 #[cfg(feature = "udp")]
-pub(crate) mod udp {
+pub mod udp {
     use crate::{
         io_ext::IOVecExt,
         v5::{read_addr, write_addr, Authentication, MAX_ADDR_LEN},
@@ -574,13 +574,13 @@ mod test {
         net::{TcpStream, ToSocketAddrs, UdpSocket},
     };
 
-    use super::*;
-    #[cfg(feature = "client")]
-    use super::client::*;
     #[cfg(feature = "bind")]
     use super::bind::*;
+    #[cfg(feature = "client")]
+    use super::client::*;
     #[cfg(feature = "udp")]
     use super::udp::*;
+    use super::*;
 
     const SOCKS_PROXY_NO_AUTH_ONLY: &str = "127.0.0.1:1084";
     const SOCKS_PROXY_PASSWD_ONLY: &str = "127.0.0.1:1085";

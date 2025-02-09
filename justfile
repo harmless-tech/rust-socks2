@@ -18,6 +18,9 @@ check-nightly:
     cargo +nightly clippy --all-targets --workspace --release -- -D warnings
     cargo +nightly deny check
 
+build:
+    cargo build
+
 test-setup: test-teardown
     docker build -t dante-test-img:no-auth -f ./test/Dockerfile \
         --build-arg CONFIG=./test/dante_no_auth.conf .

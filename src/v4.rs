@@ -1,3 +1,4 @@
+use crate::Error;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::{
     io::{self, Read},
@@ -11,41 +12,19 @@ fn read_response(socket: &mut TcpStream) -> io::Result<SocketAddrV4> {
     socket.read_exact(&mut response)?;
     let mut response = &response[..];
 
-    if response.read_u8()? != 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid response version",
-        ));
+    {
+        let version = response.read_u8()?;
+        if version != 0 {
+            return Err(Error::InvalidResponseVersion { version }.into_io());
+        }
     }
 
     match response.read_u8()? {
         90 => {}
-        91 => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "request rejected or failed",
-            ))
-        }
-        92 => {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "request rejected because SOCKS server cannot connect to \
-                                       idnetd on the client",
-            ))
-        }
-        93 => {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "request rejected because the client program and identd \
-                                       report different user-ids",
-            ))
-        }
-        _ => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid response code",
-            ))
-        }
+        91 => return Err(Error::ConnectionRefused { code: 91 }.into_io()),
+        92 => return Err(Error::RejectedRequestID { code: 92 }.into_io()),
+        93 => return Err(Error::RejectedRequestID { code: 93 }.into_io()),
+        code => return Err(Error::UnknownResponseCode { code }.into_io()),
     }
 
     let port = response.read_u16::<BigEndian>()?;
@@ -58,7 +37,7 @@ fn read_response(socket: &mut TcpStream) -> io::Result<SocketAddrV4> {
 pub mod client {
     use crate::{
         v4::{read_response, NULL_BYTE},
-        TargetAddr, ToTargetAddr,
+        Error, TargetAddr, ToTargetAddr,
     };
     use byteorder::{BigEndian, WriteBytesExt};
     use std::{
@@ -85,7 +64,7 @@ pub mod client {
         /// locally and passing a `TargetAddr::Ip`.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn connect<T, U>(proxy: T, target: &U, userid: &str) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -115,11 +94,8 @@ pub mod client {
                 TargetAddr::Ip(addr) => {
                     let addr = match addr {
                         SocketAddr::V4(addr) => addr,
-                        SocketAddr::V6(_) => {
-                            return Err(io::Error::new(
-                                io::ErrorKind::InvalidInput,
-                                "SOCKS4 does not support IPv6",
-                            ));
+                        SocketAddr::V6(addr) => {
+                            return Err(Error::Socks4NoIPv6 { addr }.into_io());
                         }
                     };
                     packet.write_u16::<BigEndian>(addr.port())?;
@@ -223,7 +199,7 @@ pub mod bind {
         /// `target`.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind<T, U>(proxy: T, target: &U, userid: &str) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -238,7 +214,7 @@ pub mod bind {
         /// connection to it.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn proxy_addr(&self) -> io::Result<SocketAddr> {
             if self.0.proxy_addr.ip().octets() == [0, 0, 0, 0] {
                 let port = self.0.proxy_addr.port();
@@ -260,7 +236,7 @@ pub mod bind {
         /// before this method is called.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn accept(mut self) -> io::Result<Socks4Stream> {
             self.0.proxy_addr = read_response(&mut self.0.socket)?;
             Ok(self.0)

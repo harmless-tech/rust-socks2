@@ -6,7 +6,9 @@
 
 SOCKS proxy support for Rust.
 
-Fork of [sfackler/rust-socks](https://github.com/sfackler/rust-socks).
+A fork of [sfackler/rust-socks](https://github.com/sfackler/rust-socks).
+
+See [changes](CHANGELOG.md).
 
 ## Using
 

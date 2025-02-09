@@ -24,7 +24,7 @@ pub use v5::bind::Socks5Listener;
 #[cfg(feature = "udp")]
 pub use v5::udp::Socks5Datagram;
 
-pub use error::Error;
+pub use error::{unwrap_io_to_socks2_error, Error};
 
 mod error;
 #[cfg(feature = "udp")]
@@ -184,10 +184,6 @@ impl ToTargetAddr for &str {
 mod test {
     use super::*;
 
-    fn unwrap_io_error(e: &io::Error) -> Option<&Error> {
-        e.get_ref().and_then(|i| i.downcast_ref())
-    }
-
     #[test]
     fn domains_to_target_addr() {
         assert_eq!(
@@ -195,7 +191,7 @@ mod test {
             TargetAddr::Domain("localhost".to_owned(), 80)
         );
         assert_eq!(
-            unwrap_io_error(&"localhost:".to_target_addr().unwrap_err()),
+            unwrap_io_to_socks2_error(&"localhost:".to_target_addr().unwrap_err()),
             Some(&Error::InvalidPortValue {
                 addr: String::new(),
                 port: String::new()

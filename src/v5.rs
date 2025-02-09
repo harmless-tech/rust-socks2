@@ -1,4 +1,4 @@
-use crate::TargetAddr;
+use crate::{Error, TargetAddr};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
     io::{self, Read, Write},
@@ -19,7 +19,7 @@ fn read_addr<R: Read>(socket: &mut R) -> io::Result<TargetAddr> {
             let mut domain = vec![0; len as usize];
             socket.read_exact(&mut domain)?;
             let domain = String::from_utf8(domain)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                .map_err(|err| Error::MalformedDomain { err }.into_io())?;
             let port = socket.read_u16::<BigEndian>()?;
             Ok(TargetAddr::Domain(domain, port))
         }
@@ -32,59 +32,36 @@ fn read_addr<R: Read>(socket: &mut R) -> io::Result<TargetAddr> {
                 ip, port, 0, 0,
             ))))
         }
-        _ => Err(io::Error::new(
-            io::ErrorKind::Other,
-            "unsupported address type",
-        )),
+        code => Err(Error::SOCKS5InvalidAddressType { code }.into_io()),
     }
 }
 
 fn read_response(socket: &mut TcpStream) -> io::Result<TargetAddr> {
-    if socket.read_u8()? != 5 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid response version",
-        ));
+    {
+        let version = socket.read_u8()?;
+        if version != 5 {
+            return Err(Error::InvalidResponseVersion { version }.into_io());
+        }
     }
 
     match socket.read_u8()? {
         0 => {}
-        1 => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "general SOCKS server failure",
-            ))
-        }
-        2 => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "connection not allowed by ruleset",
-            ))
-        }
-        3 => return Err(io::Error::new(io::ErrorKind::Other, "network unreachable")),
-        4 => return Err(io::Error::new(io::ErrorKind::Other, "host unreachable")),
-        5 => return Err(io::Error::new(io::ErrorKind::Other, "connection refused")),
-        6 => return Err(io::Error::new(io::ErrorKind::Other, "TTL expired")),
-        7 => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "command not supported",
-            ))
-        }
-        8 => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "address kind not supported",
-            ))
-        }
-        _ => return Err(io::Error::new(io::ErrorKind::Other, "unknown error")),
+        1 => return Err(Error::UnknownServerFailure { code: 1 }.into_io()),
+        2 => return Err(Error::ServerRefusedByRuleSet {}.into_io()),
+        3 => return Err(Error::ServerNetworkUnreachable {}.into_io()),
+        4 => return Err(Error::ServerHostUnreachable {}.into_io()),
+        5 => return Err(Error::ConnectionRefused { code: 5 }.into_io()),
+        6 => return Err(Error::ServerTTLExpired {}.into_io()),
+        7 => return Err(Error::ServerCmdNotSupported {}.into_io()),
+        8 => return Err(Error::ServerAddressNotSupported {}.into_io()),
+        code => return Err(Error::UnknownServerFailure { code }.into_io()),
     }
 
-    if socket.read_u8()? != 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid reserved byte",
-        ));
+    {
+        let byte = socket.read_u8()?;
+        if byte != 0 {
+            return Err(Error::InvalidReservedByte { byte }.into_io());
+        }
     }
 
     read_addr(socket)
@@ -110,10 +87,11 @@ fn write_addr(mut packet: &mut [u8], target: &TargetAddr) -> io::Result<usize> {
                     .ok()
                     .and_then(|i| if i == 0 { None } else { Some(i) })
             else {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "domain name cannot be empty or over 255 characters",
-                ));
+                return Err(Error::InvalidDomainLength {
+                    domain: domain.to_string(),
+                    length: domain.len(),
+                }
+                .into_io());
             };
             packet.write_u8(domain_len)?;
             packet.write_all(domain.as_bytes())?;
@@ -151,7 +129,7 @@ impl Authentication<'_> {
 pub mod client {
     use crate::{
         v5::{read_response, write_addr, Authentication, MAX_ADDR_LEN},
-        TargetAddr, ToTargetAddr,
+        Error, TargetAddr, ToTargetAddr,
     };
     use std::{
         io,
@@ -170,7 +148,7 @@ pub mod client {
         /// Connects to a target server through a SOCKS5 proxy.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn connect<T, U>(proxy: T, target: &U) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -183,7 +161,7 @@ pub mod client {
         /// username and password.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn connect_with_password<T, U>(
             proxy: T,
             target: &U,
@@ -227,21 +205,24 @@ pub mod client {
             let selected_method = buf[1];
 
             if response_version != 5 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid response version",
-                ));
+                return Err(Error::InvalidResponseVersion {
+                    version: response_version,
+                }
+                .into_io());
             }
 
             if selected_method == 0xff {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "no acceptable auth methods",
-                ));
+                return Err(Error::NoAuthMethods {
+                    method: selected_method,
+                }
+                .into_io());
             }
 
             if selected_method != auth.id() && selected_method != Authentication::None.id() {
-                return Err(io::Error::new(io::ErrorKind::Other, "unknown auth method"));
+                return Err(Error::UnknownAuthMethod {
+                    method: selected_method,
+                }
+                .into_io());
             }
 
             match *auth {
@@ -273,10 +254,11 @@ pub mod client {
                     .ok()
                     .and_then(|i| if i == 0 { None } else { Some(i) })
             else {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "invalid username",
-                ));
+                return Err(Error::InvalidUsername {
+                    username: username.to_string(),
+                    length: username.len(),
+                }
+                .into_io());
             };
 
             let Some(password_len) =
@@ -284,10 +266,11 @@ pub mod client {
                     .ok()
                     .and_then(|i| if i == 0 { None } else { Some(i) })
             else {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "invalid password",
-                ));
+                return Err(Error::InvalidPassword {
+                    password: (),
+                    length: password.len(),
+                }
+                .into_io());
             };
 
             let mut packet = [0; 515];
@@ -302,16 +285,10 @@ pub mod client {
             let mut buf = [0; 2];
             socket.read_exact(&mut buf)?;
             if buf[0] != 1 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid response version",
-                ));
+                return Err(Error::InvalidResponseVersion { version: buf[0] }.into_io());
             }
             if buf[1] != 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "password authentication failed",
-                ));
+                return Err(Error::FailedPasswordAuth {}.into_io());
             }
 
             Ok(())
@@ -394,7 +371,7 @@ pub mod bind {
         /// `target`.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind<T, U>(proxy: T, target: &U) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -409,7 +386,7 @@ pub mod bind {
         /// `target`.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind_with_password<T, U>(
             proxy: T,
             target: &U,
@@ -439,7 +416,7 @@ pub mod bind {
         /// before this method is called.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn accept(mut self) -> io::Result<Socks5Stream> {
             self.0.proxy_addr = read_response(&mut self.0.socket)?;
             Ok(self.0)
@@ -452,7 +429,7 @@ pub mod udp {
     use crate::{
         io_ext::IOVecExt,
         v5::{read_addr, write_addr, Authentication, MAX_ADDR_LEN},
-        Socks5Stream, TargetAddr, ToTargetAddr,
+        Error, Socks5Stream, TargetAddr, ToTargetAddr,
     };
     use byteorder::{BigEndian, ReadBytesExt};
     use std::{
@@ -474,7 +451,7 @@ pub mod udp {
         /// traffic routed through the specified proxy.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind<T, U>(proxy: T, addr: U) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -488,7 +465,7 @@ pub mod udp {
         /// is used to authenticate to the SOCKS proxy.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind_with_password<T, U>(
             proxy: T,
             addr: U,
@@ -530,7 +507,7 @@ pub mod udp {
         /// address, and 7 bytes plus the length of the domain for a domain address.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn send_to<A>(&self, buf: &[u8], addr: &A) -> io::Result<usize>
         where
             A: ToTargetAddr,
@@ -548,7 +525,7 @@ pub mod udp {
         /// Like `UdpSocket::recv_from`.
         ///
         /// # Errors
-        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, TargetAddr)> {
             let mut header = [0; MAX_ADDR_LEN + 3];
             let len = self.socket.readv([&mut header, buf])?;
@@ -558,17 +535,17 @@ pub mod udp {
             let header_len = cmp::min(header.len(), len);
             let mut header = &mut &header[..header_len];
 
-            if header.read_u16::<BigEndian>()? != 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid reserved bytes",
-                ));
+            {
+                let bytes = header.read_u16::<BigEndian>()?;
+                if bytes != 0 {
+                    return Err(Error::InvalidReservedBytes { bytes }.into());
+                }
             }
-            if header.read_u8()? != 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "invalid fragment id",
-                ));
+            {
+                let fid = header.read_u8()?;
+                if fid != 0 {
+                    return Err(Error::InvalidFragmentID { fid }.into_io());
+                }
             }
             let addr = read_addr(&mut header)?;
 

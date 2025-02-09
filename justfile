@@ -18,8 +18,17 @@ check-nightly:
     cargo +nightly clippy --all-targets --all-features --workspace --release -- -D warnings
     cargo +nightly deny check
 
+check-msvc:
+    cargo +nightly fmt --check
+    RUSTFLAGS='-Clink-arg=-fuse-ld=ld64.lld' cargo xwin clippy --all-targets --all-features --workspace --target aarch64-pc-windows-msvc -- -D warnings
+    RUSTFLAGS='-Clink-arg=-fuse-ld=ld64.lld' cargo xwin clippy --all-targets --all-features --workspace --release --target aarch64-pc-windows-msvc -- -D warnings
+    cargo deny check
+
 build:
     cargo build
+
+build-msvc:
+    cargo xwin build --target aarch64-pc-windows-msvc
 
 test-setup: test-teardown
     docker build -t dante-test-img:no-auth -f ./test/Dockerfile \

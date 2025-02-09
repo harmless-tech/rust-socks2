@@ -77,13 +77,13 @@ mod imp {
                     Error::WinUDP4GiBLimit {
                         size: bufs[0].len(),
                     }
-                    .into()
+                    .into_io()
                 })?,
                 bufs[1].len().try_into().map_err(|_| {
                     Error::WinUDP4GiBLimit {
                         size: bufs[1].len(),
                     }
-                    .into()
+                    .into_io()
                 })?,
             ];
 
@@ -130,13 +130,13 @@ mod imp {
                     Error::WinUDP4GiBLimit {
                         size: bufs[0].len(),
                     }
-                    .into()
+                    .into_io()
                 })?,
                 bufs[1].len().try_into().map_err(|_e| {
                     Error::WinUDP4GiBLimit {
                         size: bufs[1].len(),
                     }
-                    .into()
+                    .into_io()
                 })?,
             ];
 

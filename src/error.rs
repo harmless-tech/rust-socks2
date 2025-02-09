@@ -8,16 +8,25 @@ use std::{fmt::Formatter, io};
 #[allow(missing_docs)]
 pub enum Error {
     // TODO: Add docs for all errors?
-    InvalidSocksAddress { addr: String },
-    InvalidPortValue { addr: String, port: String },
-    WinUDP4GiBLimit { size: usize },
+    InvalidSocksAddress {
+        addr: String,
+    },
+    InvalidPortValue {
+        addr: String,
+        port: String,
+    },
+    /// Only occurs when using `Socks5Datagram` on windows.
+    WinUDP4GiBLimit {
+        size: usize,
+    },
 }
 
-// impl Error {
-//     pub(crate) fn into_io(self) -> io::Error {
-//         self.into()
-//     }
-// }
+impl Error {
+    #[inline]
+    pub(crate) fn into_io(self) -> io::Error {
+        self.into()
+    }
+}
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {

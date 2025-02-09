@@ -157,14 +157,14 @@ impl ToTargetAddr for &str {
             return Err(Error::InvalidSocksAddress {
                 addr: (*self).to_string(),
             }
-            .into());
+            .into_io());
         };
 
         let Some(host) = parts_iter.next() else {
             return Err(Error::InvalidSocksAddress {
                 addr: (*self).to_string(),
             }
-            .into());
+            .into_io());
         };
 
         let Some(port): Option<u16> = port_str.parse().ok() else {
@@ -172,7 +172,7 @@ impl ToTargetAddr for &str {
                 addr: (*self).to_string(),
                 port: port_str.to_string(),
             }
-            .into());
+            .into_io());
         };
 
         (host, port).to_target_addr()

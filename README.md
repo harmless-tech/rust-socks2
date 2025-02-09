@@ -1,9 +1,12 @@
-# rust-socks
+# socks2
 
-[![Crates.io](https://img.shields.io/crates/v/socks2)](https://crates.io/crates/socks2)
-[![rustc-msrv](https://img.shields.io/badge/rustc-1.71%2B-blue?logo=rust)](https://www.rust-lang.org/tools/install)
+[![Crates.io Version](https://img.shields.io/crates/v/socks2?style=flat-square&color=blue)](https://crates.io/crates/socks2)
+[![docs.rs](https://img.shields.io/docsrs/socks2?style=flat-square)](https://docs.rs/socks2)
+[![Crates.io MSRV](https://img.shields.io/crates/msrv/socks2?style=flat-square)](https://www.rust-lang.org/tools/install)
 
 SOCKS proxy support for Rust.
+
+Fork of [sfackler/rust-socks](https://github.com/sfackler/rust-socks).
 
 ## License
 

@@ -638,7 +638,7 @@ mod test {
 
     #[test]
     fn associate_no_auth() {
-        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15410").unwrap();
+        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "0.0.0.0:15410").unwrap();
         associate(&socks, "127.0.0.1:15411");
     }
 
@@ -646,7 +646,7 @@ mod test {
     fn associate_with_password() {
         let socks = Socks5Datagram::bind_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            "127.0.0.1:15414",
+            "0.0.0.0:15414",
             "testuser",
             "testpass",
         )
@@ -672,7 +672,7 @@ mod test {
 
     #[test]
     fn associate_long() {
-        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15412").unwrap();
+        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "0.0.0.0:15412").unwrap();
         let socket_addr = "127.0.0.1:15413";
         let socket = UdpSocket::bind(socket_addr).unwrap();
 

@@ -72,13 +72,13 @@ mod imp {
     impl IOVecExt for UdpSocket {
         fn writev(&self, bufs: [&[u8]; VEC_SIZE]) -> io::Result<usize> {
             let bufs_lens: [u32; VEC_SIZE] = [
-                bufs[0].len().try_into().map_err(|e| {
+                bufs[0].len().try_into().map_err(|_e| {
                     io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "can only write up to 4294967295 bytes (4GB) on a UDPSocket using writev",
                     )
                 })?,
-                bufs[1].len().try_into().map_err(|e| {
+                bufs[1].len().try_into().map_err(|_e| {
                     io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "can only write up to 4294967295 bytes (4GB) on a UDPSocket using writev",
@@ -125,13 +125,13 @@ mod imp {
 
         fn readv(&self, bufs: [&mut [u8]; VEC_SIZE]) -> io::Result<usize> {
             let bufs_lens: [u32; VEC_SIZE] = [
-                bufs[0].len().try_into().map_err(|e| {
+                bufs[0].len().try_into().map_err(|_e| {
                     io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "can only write up to 4294967295 bytes (4GB) on a UDPSocket using readv",
                     )
                 })?,
-                bufs[1].len().try_into().map_err(|e| {
+                bufs[1].len().try_into().map_err(|_e| {
                     io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "can only write up to 4294967295 bytes (4GB) on a UDPSocket using readv",
@@ -153,6 +153,11 @@ mod imp {
             let mut recved: u32 = 0;
             let mut flags: u32 = 0;
             // SAFETY: All params are setup in this function safely.
+            // SAFETY: Length is always VEC_SIZE.
+            // SAFETY: On 32 bit systems self.as_raw_socket() returns a u32.
+            //         (https://doc.rust-lang.org/src/std/os/windows/raw.rs.html#16)
+            #[allow(clippy::cast_possible_truncation)]
+            #[allow(clippy::cast_possible_wrap)]
             let r = unsafe {
                 WSARecv(
                     self.as_raw_socket() as _,

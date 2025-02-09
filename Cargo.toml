@@ -16,10 +16,21 @@ rust-version = "1.71.1"
 byteorder = "1.5"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2"
+libc = { version = "0.2", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_IO", "Win32_Networking_WinSock"] }
+windows-sys = { version = "0.59", optional = true, features = ["Win32_System_IO", "Win32_Networking_WinSock"] }
+
+[features]
+default = ["client", "bind", "udp"]
+client = ["socks4-client", "socks5-client"]
+bind = ["socks4-client", "socks4-bind"]
+udp = ["socks5-udp"]
+socks4-client = []
+socks4-bind = []
+socks5-client = []
+socks5-bind = []
+socks5-udp = ["libc", "windows-sys"]
 
 [package.metadata.docs.rs]
 all-features = true

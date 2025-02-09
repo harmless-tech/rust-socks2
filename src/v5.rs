@@ -105,19 +105,17 @@ fn write_addr(mut packet: &mut [u8], target: &TargetAddr) -> io::Result<usize> {
         }
         TargetAddr::Domain(ref domain, port) => {
             packet.write_u8(3)?;
-            if domain.is_empty() {
+            let Some(domain_len) =
+                u8::try_from(domain.len())
+                    .ok()
+                    .and_then(|i| if i == 0 { None } else { Some(i) })
+            else {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "domain name cannot be empty",
+                    "domain name cannot be empty or over 255 characters",
                 ));
-            }
-            if domain.len() > u8::MAX as usize {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "domain name too long",
-                ));
-            }
-            packet.write_u8(domain.len() as u8)?;
+            };
+            packet.write_u8(domain_len)?;
             packet.write_all(domain.as_bytes())?;
             packet.write_u16::<BigEndian>(port)?;
         }
@@ -264,26 +262,34 @@ pub mod client {
             username: &str,
             password: &str,
         ) -> io::Result<()> {
-            // TODO: Maybe change up how lengths work?
-            if username.is_empty() || username.len() > u8::MAX as usize {
+            let Some(username_len) =
+                u8::try_from(username.len())
+                    .ok()
+                    .and_then(|i| if i == 0 { None } else { Some(i) })
+            else {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "invalid username",
                 ));
             };
-            if password.is_empty() || password.len() > u8::MAX as usize {
+
+            let Some(password_len) =
+                u8::try_from(password.len())
+                    .ok()
+                    .and_then(|i| if i == 0 { None } else { Some(i) })
+            else {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "invalid password",
                 ));
-            }
+            };
 
             let mut packet = [0; 515];
             let packet_size = 3 + username.len() + password.len();
             packet[0] = 1; // version
-            packet[1] = username.len() as u8;
+            packet[1] = username_len;
             packet[2..2 + username.len()].copy_from_slice(username.as_bytes());
-            packet[2 + username.len()] = password.len() as u8;
+            packet[2 + username.len()] = password_len;
             packet[3 + username.len()..packet_size].copy_from_slice(password.as_bytes());
             socket.write_all(&packet[..packet_size])?;
 
@@ -729,7 +735,7 @@ mod test {
 
         let mut msg = vec![];
         for i in 0..(MAX_ADDR_LEN + 100) {
-            msg.push(i as u8);
+            msg.push(u8::try_from(i).unwrap());
         }
 
         socks.send_to(&msg, &socket_addr).unwrap();

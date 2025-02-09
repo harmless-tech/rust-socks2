@@ -66,23 +66,24 @@ mod imp {
 #[cfg(windows)]
 mod imp {
     use super::{io, IOVecExt, UdpSocket, VEC_SIZE};
+    use crate::Error;
     use std::{os::windows::io::AsRawSocket, ptr};
     use windows_sys::Win32::Networking::WinSock::{WSARecv, WSASend, WSABUF};
 
     impl IOVecExt for UdpSocket {
         fn writev(&self, bufs: [&[u8]; VEC_SIZE]) -> io::Result<usize> {
             let bufs_lens: [u32; VEC_SIZE] = [
-                bufs[0].len().try_into().map_err(|_e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "can only write up to 4294967295 bytes (4GB) on a UDPSocket using writev",
-                    )
+                bufs[0].len().try_into().map_err(|_| {
+                    Error::WinUDP4GiBLimit {
+                        size: bufs[0].len(),
+                    }
+                    .into()
                 })?,
-                bufs[1].len().try_into().map_err(|_e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "can only write up to 4294967295 bytes (4GB) on a UDPSocket using writev",
-                    )
+                bufs[1].len().try_into().map_err(|_| {
+                    Error::WinUDP4GiBLimit {
+                        size: bufs[1].len(),
+                    }
+                    .into()
                 })?,
             ];
 
@@ -125,17 +126,17 @@ mod imp {
 
         fn readv(&self, bufs: [&mut [u8]; VEC_SIZE]) -> io::Result<usize> {
             let bufs_lens: [u32; VEC_SIZE] = [
-                bufs[0].len().try_into().map_err(|_e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "can only write up to 4294967295 bytes (4GB) on a UDPSocket using readv",
-                    )
+                bufs[0].len().try_into().map_err(|_| {
+                    Error::WinUDP4GiBLimit {
+                        size: bufs[0].len(),
+                    }
+                    .into()
                 })?,
                 bufs[1].len().try_into().map_err(|_e| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "can only write up to 4294967295 bytes (4GB) on a UDPSocket using readv",
-                    )
+                    Error::WinUDP4GiBLimit {
+                        size: bufs[1].len(),
+                    }
+                    .into()
                 })?,
             ];
 

@@ -83,6 +83,9 @@ pub mod client {
         /// to the proxy server using the SOCKS4A protocol extension. If the proxy
         /// server does not support SOCKS4A, consider performing the DNS lookup
         /// locally and passing a `TargetAddr::Ip`.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn connect<T, U>(proxy: T, target: &U, userid: &str) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -218,6 +221,9 @@ pub mod bind {
         ///
         /// The proxy will filter incoming connections based on the value of
         /// `target`.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn bind<T, U>(proxy: T, target: &U, userid: &str) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -230,6 +236,9 @@ pub mod bind {
         ///
         /// This should be forwarded to the remote process, which should open a
         /// connection to it.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn proxy_addr(&self) -> io::Result<SocketAddr> {
             if self.0.proxy_addr.ip().octets() == [0, 0, 0, 0] {
                 let port = self.0.proxy_addr.port();
@@ -249,6 +258,9 @@ pub mod bind {
         ///
         /// The value of `proxy_addr` should be forwarded to the remote process
         /// before this method is called.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn accept(mut self) -> io::Result<Socks4Stream> {
             self.0.proxy_addr = read_response(&mut self.0.socket)?;
             Ok(self.0)
@@ -257,6 +269,7 @@ pub mod bind {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod test {
     use std::{
         io::{Read, Write},

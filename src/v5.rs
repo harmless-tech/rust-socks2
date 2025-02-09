@@ -168,6 +168,9 @@ pub mod client {
 
     impl Socks5Stream {
         /// Connects to a target server through a SOCKS5 proxy.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn connect<T, U>(proxy: T, target: &U) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -178,6 +181,9 @@ pub mod client {
 
         /// Connects to a target server through a SOCKS5 proxy using given
         /// username and password.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn connect_with_password<T, U>(
             proxy: T,
             target: &U,
@@ -386,6 +392,9 @@ pub mod bind {
         ///
         /// The proxy will filter incoming connections based on the value of
         /// `target`.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn bind<T, U>(proxy: T, target: &U) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -398,6 +407,9 @@ pub mod bind {
         ///
         /// The proxy will filter incoming connections based on the value of
         /// `target`.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn bind_with_password<T, U>(
             proxy: T,
             target: &U,
@@ -425,6 +437,9 @@ pub mod bind {
         ///
         /// The value of `proxy_addr` should be forwarded to the remote process
         /// before this method is called.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn accept(mut self) -> io::Result<Socks5Stream> {
             self.0.proxy_addr = read_response(&mut self.0.socket)?;
             Ok(self.0)
@@ -457,6 +472,9 @@ pub mod udp {
     impl Socks5Datagram {
         /// Creates a UDP socket bound to the specified address which will have its
         /// traffic routed through the specified proxy.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn bind<T, U>(proxy: T, addr: U) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -464,9 +482,13 @@ pub mod udp {
         {
             Self::bind_internal(proxy, addr, &Authentication::None)
         }
+
         /// Creates a UDP socket bound to the specified address which will have its
         /// traffic routed through the specified proxy. The given username and password
         /// is used to authenticate to the SOCKS proxy.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn bind_with_password<T, U>(
             proxy: T,
             addr: U,
@@ -503,10 +525,12 @@ pub mod udp {
         /// Like `UdpSocket::send_to`.
         ///
         /// # Note
-        ///
         /// The SOCKS protocol inserts a header at the beginning of the message. The
         /// header will be 10 bytes for an IPv4 address, 22 bytes for an IPv6
         /// address, and 7 bytes plus the length of the domain for a domain address.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn send_to<A>(&self, buf: &[u8], addr: &A) -> io::Result<usize>
         where
             A: ToTargetAddr,
@@ -522,6 +546,9 @@ pub mod udp {
         }
 
         /// Like `UdpSocket::recv_from`.
+        ///
+        /// # Errors
+        /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*)`
         pub fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, TargetAddr)> {
             let mut header = [0; MAX_ADDR_LEN + 3];
             let len = self.socket.readv([&mut header, buf])?;
@@ -574,6 +601,7 @@ pub mod udp {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod test {
     use std::{
         io::{Read, Write},

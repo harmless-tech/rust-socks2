@@ -1,9 +1,9 @@
 //! SOCKS proxy clients
+
 #![deny(clippy::all)]
-/*** TODO ***/
-#![allow(clippy::missing_errors_doc)]
-// #![deny(clippy::unwrap_used)] // TODO: This library should try to never panic!
-/*** END TODO ***/
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![warn(missing_docs)]
 
 use std::{
     io,
@@ -24,6 +24,9 @@ pub use v5::bind::Socks5Listener;
 #[cfg(feature = "udp")]
 pub use v5::udp::Socks5Datagram;
 
+pub use error::Error;
+
+mod error;
 #[cfg(feature = "udp")]
 mod io_ext;
 #[cfg(any(feature = "client", feature = "bind"))]
@@ -80,6 +83,9 @@ impl Iterator for Iter {
 /// A trait for objects that can be converted to `TargetAddr`.
 pub trait ToTargetAddr {
     /// Converts the value of `self` to a `TargetAddr`.
+    ///
+    /// # Errors
+    /// - `std::io::ErrorKind::*`
     fn to_target_addr(&self) -> io::Result<TargetAddr>;
 }
 
@@ -148,26 +154,56 @@ impl ToTargetAddr for &str {
         // split the string by ':' and convert the second part to u16
         let mut parts_iter = self.rsplitn(2, ':');
         let Some(port_str) = parts_iter.next() else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid socket address",
-            ));
+            return Err(Error::InvalidSocksAddress {
+                addr: (*self).to_string(),
+            }
+            .into());
         };
 
         let Some(host) = parts_iter.next() else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid socket address",
-            ));
+            return Err(Error::InvalidSocksAddress {
+                addr: (*self).to_string(),
+            }
+            .into());
         };
 
         let Some(port): Option<u16> = port_str.parse().ok() else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid port value",
-            ));
+            return Err(Error::InvalidPortValue {
+                addr: (*self).to_string(),
+                port: port_str.to_string(),
+            }
+            .into());
         };
 
         (host, port).to_target_addr()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod test {
+    use super::*;
+
+    fn unwrap_io_error(e: &io::Error) -> Option<&Error> {
+        e.get_ref().and_then(|i| i.downcast_ref())
+    }
+
+    #[test]
+    fn domains_to_target_addr() {
+        assert_eq!(
+            "localhost:80".to_target_addr().unwrap(),
+            TargetAddr::Domain("localhost".to_owned(), 80)
+        );
+        assert_eq!(
+            unwrap_io_error(&"localhost:".to_target_addr().unwrap_err()),
+            Some(&Error::InvalidPortValue {
+                addr: String::new(),
+                port: String::new()
+            })
+        );
+        assert_eq!(
+            "github.com:443".to_target_addr().unwrap(),
+            TargetAddr::Domain("github.com".to_owned(), 443)
+        );
     }
 }

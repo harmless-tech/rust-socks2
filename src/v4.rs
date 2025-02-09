@@ -247,15 +247,14 @@ pub mod bind {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod test {
-    use std::{
-        io::{Read, Write},
-        net::{SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
-    };
-
     #[cfg(feature = "bind")]
     use super::bind::*;
     #[cfg(feature = "client")]
     use super::client::*;
+    use std::{
+        io::{Read, Write},
+        net::{SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
+    };
 
     const PROXY_ADDR: &str = "127.0.0.1:1084";
 

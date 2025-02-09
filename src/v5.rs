@@ -580,11 +580,6 @@ pub mod udp {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod test {
-    use std::{
-        io::{Read, Write},
-        net::{TcpStream, ToSocketAddrs, UdpSocket},
-    };
-
     #[cfg(feature = "bind")]
     use super::bind::*;
     #[cfg(feature = "client")]
@@ -592,6 +587,11 @@ mod test {
     #[cfg(feature = "udp")]
     use super::udp::*;
     use super::*;
+    use crate::unwrap_io_to_socks2_error;
+    use std::{
+        io::{Read, Write},
+        net::{TcpStream, ToSocketAddrs, UdpSocket},
+    };
 
     const SOCKS_PROXY_NO_AUTH_ONLY: &str = "127.0.0.1:1084";
     const SOCKS_PROXY_PASSWD_ONLY: &str = "127.0.0.1:1085";
@@ -780,8 +780,10 @@ mod test {
         let addr = "google.com:80".to_socket_addrs().unwrap().next().unwrap();
         let err = Socks5Stream::connect(SOCKS_PROXY_PASSWD_ONLY, &addr).unwrap_err();
 
-        assert_eq!(err.kind(), io::ErrorKind::Other);
-        assert_eq!(err.to_string(), "no acceptable auth methods");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::NoAuthMethods { method: 99 })
+        );
     }
 
     #[test]
@@ -796,8 +798,10 @@ mod test {
             &string_of_size(1),
         )
         .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
-        assert_eq!(err.to_string(), "password authentication failed");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::FailedPasswordAuth {})
+        );
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
@@ -806,8 +810,10 @@ mod test {
             &string_of_size(255),
         )
         .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
-        assert_eq!(err.to_string(), "password authentication failed");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::FailedPasswordAuth {})
+        );
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
@@ -816,8 +822,13 @@ mod test {
             &string_of_size(255),
         )
         .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.to_string(), "invalid username");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::InvalidUsername {
+                username: "1".to_string(),
+                length: 1
+            })
+        );
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
@@ -826,8 +837,13 @@ mod test {
             &string_of_size(255),
         )
         .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.to_string(), "invalid username");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::InvalidUsername {
+                username: "1".to_string(),
+                length: 1
+            })
+        );
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
@@ -836,8 +852,13 @@ mod test {
             &string_of_size(0),
         )
         .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.to_string(), "invalid password");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::InvalidPassword {
+                password: (),
+                length: 1
+            })
+        );
 
         let err = Socks5Stream::connect_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
@@ -846,8 +867,13 @@ mod test {
             &string_of_size(256),
         )
         .unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(err.to_string(), "invalid password");
+        assert_eq!(
+            unwrap_io_to_socks2_error(&err),
+            Some(&Error::InvalidPassword {
+                password: (),
+                length: 1
+            })
+        );
     }
 
     #[cfg(feature = "client")]

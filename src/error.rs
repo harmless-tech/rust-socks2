@@ -1,6 +1,9 @@
 use std::{fmt::Formatter, io, net::SocketAddrV6, string::FromUtf8Error};
 
 /// Errors from socks2
+///
+/// # Notes
+/// `Error` implements PartialEq, but it does not compare fields.
 #[derive(Debug)]
 #[non_exhaustive]
 #[allow(missing_docs)]

@@ -8,14 +8,14 @@ fmt:
 
 check:
     cargo +nightly fmt --check
-    cargo clippy --all-targets --workspace -- -D warnings
-    cargo clippy --all-targets --workspace --release -- -D warnings
+    cargo clippy --all-targets --all-features --workspace -- -D warnings
+    cargo clippy --all-targets --all-features --workspace --release -- -D warnings
     cargo deny check
 
 check-nightly:
     cargo +nightly fmt --check
-    cargo +nightly clippy --all-targets --workspace -- -D warnings
-    cargo +nightly clippy --all-targets --workspace --release -- -D warnings
+    cargo +nightly clippy --all-targets --all-features --workspace -- -D warnings
+    cargo +nightly clippy --all-targets --all-features --workspace --release -- -D warnings
     cargo +nightly deny check
 
 build:
@@ -29,11 +29,9 @@ test-setup: test-teardown
     docker run -d --rm --name dani1 -p 1084:1084/tcp -p 1084:1084/udp dante-test-img:no-auth
     docker run -d --rm --name dani2 -p 1085:1085/tcp -p 1085:1085/udp dante-test-img:password
 
+# Because we test in a docker container, we cannot send stuff to udp sockets on the host.
 test:
-    cargo test
-
-testr:
-    cargo testr
+    cargo test --no-default-features --features client
 
 test-teardown:
     docker stop dani1 || true

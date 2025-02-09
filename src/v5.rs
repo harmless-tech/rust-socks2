@@ -665,7 +665,7 @@ mod test {
     fn bind_with_password() {
         let addr = find_address();
         let listener =
-            Socks5Listener::bind_with_password("127.0.0.1:1081", &addr, "testuser", "testpass")
+            Socks5Listener::bind_with_password("127.0.0.1:1085", &addr, "testuser", "testpass")
                 .unwrap();
         bind(listener);
     }
@@ -692,7 +692,7 @@ mod test {
     #[test]
     #[cfg(feature = "udp")]
     fn associate_no_auth() {
-        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "0.0.0.0:15410").unwrap();
+        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15410").unwrap();
         associate(&socks, "127.0.0.1:15411");
     }
 
@@ -701,7 +701,7 @@ mod test {
     fn associate_with_password() {
         let socks = Socks5Datagram::bind_with_password(
             SOCKS_PROXY_PASSWD_ONLY,
-            "0.0.0.0:15414",
+            "127.0.0.1:15414",
             "testuser",
             "testpass",
         )
@@ -728,14 +728,15 @@ mod test {
 
     #[test]
     #[cfg(feature = "udp")]
+    #[allow(clippy::cast_possible_truncation)]
     fn associate_long() {
-        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "0.0.0.0:15412").unwrap();
+        let socks = Socks5Datagram::bind(SOCKS_PROXY_NO_AUTH_ONLY, "127.0.0.1:15412").unwrap();
         let socket_addr = "127.0.0.1:15413";
         let socket = UdpSocket::bind(socket_addr).unwrap();
 
         let mut msg = vec![];
         for i in 0..(MAX_ADDR_LEN + 100) {
-            msg.push(u8::try_from(i).unwrap());
+            msg.push(i as u8);
         }
 
         socks.send_to(&msg, &socket_addr).unwrap();

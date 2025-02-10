@@ -1,6 +1,6 @@
 [package]
 name = "socks2"
-version = "0.4.0"
+version = "0.4.0-rc.0"
 edition = "2021"
 authors = ["Steven Fackler <sfackler@gmail.com>", "harmless-tech"]
 readme = "README.md"

@@ -44,9 +44,10 @@ pub mod client {
         io,
         io::{Read, Write},
         net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
+        time::Duration,
     };
 
-    /// A SOCKS4 client.
+    /// A SOCKS4 and SOCKS4A client.
     #[derive(Debug)]
     pub struct Socks4Stream {
         pub(super) socket: TcpStream,
@@ -65,12 +66,17 @@ pub mod client {
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
-        pub fn connect<T, U>(proxy: T, target: &U, userid: &str) -> io::Result<Self>
+        pub fn connect<T, U>(
+            proxy: T,
+            target: &U,
+            userid: &str,
+            timeout: Option<Duration>,
+        ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            Self::connect_raw(1, proxy, target, userid)
+            Self::connect_raw(1, proxy, target, userid, timeout)
         }
 
         pub(super) fn connect_raw<T, U>(
@@ -78,12 +84,23 @@ pub mod client {
             proxy: T,
             target: &U,
             userid: &str,
+            timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            let mut socket = TcpStream::connect(proxy)?;
+            let mut socket = match timeout {
+                None => TcpStream::connect(proxy)?,
+                // TODO: Should filter to ipv4 only? Since SOCKS4 only supports that.
+                Some(t) => TcpStream::connect_timeout(
+                    &proxy
+                        .to_socket_addrs()?
+                        .next()
+                        .ok_or_else(|| Error::NoResolveSocketAddr {}.into_io())?,
+                    t,
+                )?,
+            };
 
             let target = target.to_target_addr()?;
 
@@ -186,9 +203,10 @@ pub mod bind {
     use std::{
         io,
         net::{SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
+        time::Duration,
     };
 
-    /// A SOCKS4 BIND client.
+    /// A SOCKS4 and SOCKS4A BIND client.
     #[derive(Debug)]
     pub struct Socks4Listener(Socks4Stream);
 
@@ -200,12 +218,17 @@ pub mod bind {
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
-        pub fn bind<T, U>(proxy: T, target: &U, userid: &str) -> io::Result<Self>
+        pub fn bind<T, U>(
+            proxy: T,
+            target: &U,
+            userid: &str,
+            timeout: Option<Duration>,
+        ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            Socks4Stream::connect_raw(2, proxy, target, userid).map(Socks4Listener)
+            Socks4Stream::connect_raw(2, proxy, target, userid, timeout).map(Socks4Listener)
         }
 
         /// The address of the proxy-side TCP listener.
@@ -254,6 +277,7 @@ mod test {
     use std::{
         io::{Read, Write},
         net::{SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
+        time::Duration,
     };
 
     const PROXY_ADDR: &str = "127.0.0.1:1084";
@@ -272,7 +296,7 @@ mod test {
     #[test]
     #[cfg(feature = "client")]
     fn google() {
-        let mut socket = Socks4Stream::connect(PROXY_ADDR, &google_ip(), "").unwrap();
+        let mut socket = Socks4Stream::connect(PROXY_ADDR, &google_ip(), "", None).unwrap();
 
         socket.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
         let mut result = vec![];
@@ -287,7 +311,13 @@ mod test {
     #[ignore] // dante doesn't support SOCKS4A
     #[cfg(feature = "client")]
     fn google_dns() {
-        let mut socket = Socks4Stream::connect(PROXY_ADDR, &"google.com:80", "").unwrap();
+        let mut socket = Socks4Stream::connect(
+            PROXY_ADDR,
+            &"google.com:80",
+            "",
+            Some(Duration::from_secs(10)),
+        )
+        .unwrap();
 
         socket.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
         let mut result = vec![];
@@ -302,10 +332,10 @@ mod test {
     #[cfg(feature = "bind")]
     fn bind() {
         // First figure out our local address that we'll be connecting from
-        let socket = Socks4Stream::connect(PROXY_ADDR, &google_ip(), "").unwrap();
+        let socket = Socks4Stream::connect(PROXY_ADDR, &google_ip(), "", None).unwrap();
         let addr = socket.proxy_addr();
 
-        let listener = Socks4Listener::bind(PROXY_ADDR, &addr, "").unwrap();
+        let listener = Socks4Listener::bind(PROXY_ADDR, &addr, "", None).unwrap();
         let addr = listener.proxy_addr().unwrap();
         let mut end = TcpStream::connect(addr).unwrap();
         let mut conn = listener.accept().unwrap();

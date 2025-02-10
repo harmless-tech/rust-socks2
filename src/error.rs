@@ -3,7 +3,7 @@ use std::{fmt::Formatter, io, net::SocketAddrV6, string::FromUtf8Error};
 /// Errors from socks2
 ///
 /// # Notes
-/// `Error` implements PartialEq, but it does not compare fields.
+/// `Error` implements `PartialEq`, but it does not compare fields.
 #[derive(Debug)]
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -15,6 +15,8 @@ pub enum Error {
     InvalidPortValue { addr: String, port: String },
 
     // Socks4/Socks5
+    /// Could not resolve the first socket address.
+    NoResolveSocketAddr {},
     /// Response from server had an invalid version byte.
     InvalidResponseVersion { version: u8 },
     /// Unknown response code
@@ -101,6 +103,7 @@ impl PartialEq for Error {
         peq!(
             InvalidSocksAddress,
             InvalidPortValue,
+            NoResolveSocketAddr,
             InvalidResponseVersion,
             UnknownResponseCode,
             ConnectionRefused,
@@ -142,6 +145,7 @@ impl From<Error> for io::Error {
         from_error!(
             (InvalidSocksAddress, InvalidInput),
             (InvalidPortValue, InvalidInput),
+            (NoResolveSocketAddr, InvalidInput),
             (InvalidResponseVersion, InvalidData),
             (UnknownResponseCode, Other),
             (ConnectionRefused, ConnectionRefused),
@@ -179,6 +183,7 @@ impl std::fmt::Display for Error {
             Self::InvalidPortValue { addr, port } => {
                 write!(f, "invalid port value '{port}' for '{addr}'")
             },
+            Self::NoResolveSocketAddr {} => write!(f, "could not resolve a socket address"),
             Self::InvalidResponseVersion { version } => write!(f, "invalid response version '{version}'"),
             Self::UnknownResponseCode { code } => write!(f, "unknown response code '{code}'"),
             Self::ConnectionRefused { code } => write!(f, "connection refused or the request was rejected or failed '{code}'"),

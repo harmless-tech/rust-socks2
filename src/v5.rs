@@ -150,12 +150,16 @@ pub mod client {
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
-        pub fn connect<T, U>(proxy: T, target: &U, timeout: Option<Duration>) -> io::Result<Self>
+        pub fn connect<T, U>(
+            proxy: T,
+            target: &U,
+            connect_timeout: Option<Duration>,
+        ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            Self::connect_raw(1, proxy, target, &Authentication::None, timeout)
+            Self::connect_raw(1, proxy, target, &Authentication::None, connect_timeout)
         }
 
         /// Connects to a target server through a SOCKS5 proxy using given
@@ -168,14 +172,14 @@ pub mod client {
             target: &U,
             username: &str,
             password: &str,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
             let auth = Authentication::Password { username, password };
-            Self::connect_raw(1, proxy, target, &auth, timeout)
+            Self::connect_raw(1, proxy, target, &auth, connect_timeout)
         }
 
         pub(super) fn connect_raw<T, U>(
@@ -183,14 +187,15 @@ pub mod client {
             proxy: T,
             target: &U,
             auth: &Authentication,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            let mut socket = match timeout {
+            let mut socket = match connect_timeout {
                 None => TcpStream::connect(proxy)?,
+                // TODO: Connect timeout for each address until one works?
                 Some(t) => TcpStream::connect_timeout(
                     &proxy
                         .to_socket_addrs()?
@@ -384,12 +389,16 @@ pub mod bind {
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
-        pub fn bind<T, U>(proxy: T, target: &U, timeout: Option<Duration>) -> io::Result<Self>
+        pub fn bind<T, U>(
+            proxy: T,
+            target: &U,
+            connect_timeout: Option<Duration>,
+        ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            Socks5Stream::connect_raw(2, proxy, target, &Authentication::None, timeout)
+            Socks5Stream::connect_raw(2, proxy, target, &Authentication::None, connect_timeout)
                 .map(Socks5Listener)
         }
         /// Initiates a BIND request to the specified proxy using given username
@@ -405,14 +414,14 @@ pub mod bind {
             target: &U,
             username: &str,
             password: &str,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
             let auth = Authentication::Password { username, password };
-            Socks5Stream::connect_raw(2, proxy, target, &auth, timeout).map(Socks5Listener)
+            Socks5Stream::connect_raw(2, proxy, target, &auth, connect_timeout).map(Socks5Listener)
         }
 
         /// The address of the proxy-side TCP listener.
@@ -467,12 +476,12 @@ pub mod udp {
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
-        pub fn bind<T, U>(proxy: T, addr: U, timeout: Option<Duration>) -> io::Result<Self>
+        pub fn bind<T, U>(proxy: T, addr: U, connect_timeout: Option<Duration>) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToSocketAddrs,
         {
-            Self::bind_internal(proxy, addr, &Authentication::None, timeout)
+            Self::bind_internal(proxy, addr, &Authentication::None, connect_timeout)
         }
 
         /// Creates a UDP socket bound to the specified address which will have its
@@ -486,21 +495,21 @@ pub mod udp {
             addr: U,
             username: &str,
             password: &str,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToSocketAddrs,
         {
             let auth = Authentication::Password { username, password };
-            Self::bind_internal(proxy, addr, &auth, timeout)
+            Self::bind_internal(proxy, addr, &auth, connect_timeout)
         }
 
         fn bind_internal<T, U>(
             proxy: T,
             addr: U,
             auth: &Authentication,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
@@ -512,7 +521,7 @@ pub mod udp {
                 Ipv4Addr::new(0, 0, 0, 0),
                 0,
             )));
-            let stream = Socks5Stream::connect_raw(3, proxy, &dst, auth, timeout)?;
+            let stream = Socks5Stream::connect_raw(3, proxy, &dst, auth, connect_timeout)?;
 
             let socket = UdpSocket::bind(addr)?;
             socket.connect(&stream.proxy_addr)?;
@@ -540,6 +549,7 @@ pub mod udp {
             // third byte is the fragment id at 0
             let len = write_addr(&mut header[3..], &addr)?;
 
+            // TODO: Use write_vectored?
             self.socket.writev([&header[..len + 3], buf])
         }
 
@@ -549,6 +559,7 @@ pub mod udp {
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, TargetAddr)> {
             let mut header = [0; MAX_ADDR_LEN + 3];
+            // TODO: Use read_vectored?
             let len = self.socket.readv([&mut header, buf])?;
 
             let overflow = len.saturating_sub(header.len());

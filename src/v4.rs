@@ -70,13 +70,13 @@ pub mod client {
             proxy: T,
             target: &U,
             userid: &str,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            Self::connect_raw(1, proxy, target, userid, timeout)
+            Self::connect_raw(1, proxy, target, userid, connect_timeout)
         }
 
         pub(super) fn connect_raw<T, U>(
@@ -84,15 +84,15 @@ pub mod client {
             proxy: T,
             target: &U,
             userid: &str,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            let mut socket = match timeout {
+            let mut socket = match connect_timeout {
                 None => TcpStream::connect(proxy)?,
-                // TODO: Should filter to ipv4 only? Since SOCKS4 only supports that.
+                // TODO: Connect timeout for each address until one works?
                 Some(t) => TcpStream::connect_timeout(
                     &proxy
                         .to_socket_addrs()?
@@ -222,13 +222,13 @@ pub mod bind {
             proxy: T,
             target: &U,
             userid: &str,
-            timeout: Option<Duration>,
+            connect_timeout: Option<Duration>,
         ) -> io::Result<Self>
         where
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            Socks4Stream::connect_raw(2, proxy, target, userid, timeout).map(Socks4Listener)
+            Socks4Stream::connect_raw(2, proxy, target, userid, connect_timeout).map(Socks4Listener)
         }
 
         /// The address of the proxy-side TCP listener.

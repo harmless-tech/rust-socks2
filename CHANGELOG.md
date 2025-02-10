@@ -12,7 +12,7 @@
 - Remove all unwraps.
 - New Error type that is returned wrapped in io::Error.
 - Add timeout to connect and bind methods.
-- TargetAddr derives Eq and PartialEq.
+- TargetAddr derives Eq, PartialEq, and Display.
 - Add features to split up code.
 - Some socks functions now want a reference to the target addr.
 - Use rust edition 2021.

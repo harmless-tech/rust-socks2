@@ -6,11 +6,11 @@
 #![warn(missing_docs)]
 
 use std::{
+    fmt::Formatter,
     io,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
     vec,
 };
-
 #[cfg(feature = "client")]
 pub use v4::client::Socks4Stream;
 #[cfg(feature = "client")]
@@ -44,6 +44,15 @@ pub enum TargetAddr {
     /// The domain name will be passed along to the proxy server and DNS lookup
     /// will happen there.
     Domain(String, u16),
+}
+
+impl std::fmt::Display for TargetAddr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ip(addr) => write!(f, "{addr}"),
+            Self::Domain(domain, port) => write!(f, "{domain}:{port}"),
+        }
+    }
 }
 
 impl ToSocketAddrs for TargetAddr {

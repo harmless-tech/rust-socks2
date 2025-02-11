@@ -1,5 +1,5 @@
 use crate::{Error, TargetAddr};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use std::{
     io::{
         Read, Write, {self},
@@ -73,17 +73,17 @@ fn write_addr(mut packet: &mut [u8], target: &TargetAddr) -> io::Result<usize> {
     let start_len = packet.len();
     match *target {
         TargetAddr::Ip(SocketAddr::V4(addr)) => {
-            packet.write_u8(1)?;
-            packet.write_u32::<BigEndian>((*addr.ip()).into())?;
-            packet.write_u16::<BigEndian>(addr.port())?;
+            packet.write_all(&1_u8.to_be_bytes())?;
+            packet.write_all(&addr.ip().octets())?;
+            packet.write_all(&addr.port().to_be_bytes())?;
         }
         TargetAddr::Ip(SocketAddr::V6(addr)) => {
-            packet.write_u8(4)?;
+            packet.write_all(&4_u8.to_be_bytes())?;
             packet.write_all(&addr.ip().octets())?;
-            packet.write_u16::<BigEndian>(addr.port())?;
+            packet.write_all(&addr.port().to_be_bytes())?;
         }
         TargetAddr::Domain(ref domain, port) => {
-            packet.write_u8(3)?;
+            packet.write_all(&3_u8.to_be_bytes())?;
             let Some(domain_len) =
                 u8::try_from(domain.len())
                     .ok()
@@ -95,9 +95,9 @@ fn write_addr(mut packet: &mut [u8], target: &TargetAddr) -> io::Result<usize> {
                 }
                 .into_io());
             };
-            packet.write_u8(domain_len)?;
+            packet.write_all(&domain_len.to_be_bytes())?;
             packet.write_all(domain.as_bytes())?;
-            packet.write_u16::<BigEndian>(port)?;
+            packet.write_all(&port.to_be_bytes())?;
         }
     }
 

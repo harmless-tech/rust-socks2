@@ -7,7 +7,7 @@ use std::{
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
 };
 
-const NULL_BYTE: u8 = 0;
+const NULL_BYTE: &[u8] = &0_u8.to_be_bytes();
 
 fn read_response(socket: &mut TcpStream) -> io::Result<SocketAddrV4> {
     let mut response = [0u8; 8];
@@ -42,7 +42,6 @@ pub mod client {
         v4::{read_response, NULL_BYTE},
         Error, TargetAddr, ToTargetAddr,
     };
-    use byteorder::{BigEndian, WriteBytesExt};
     use core::time::Duration;
     use std::{
         io,
@@ -100,8 +99,8 @@ pub mod client {
             let target = target.to_target_addr()?;
 
             let mut packet = vec![];
-            packet.write_u8(4)?; // version
-            packet.write_u8(command)?; // command code
+            packet.write_all(&4_u8.to_be_bytes())?; // version
+            packet.write_all(&command.to_be_bytes())?; // command code
             match target.to_target_addr()? {
                 TargetAddr::Ip(addr) => {
                     let addr = match addr {
@@ -110,18 +109,18 @@ pub mod client {
                             return Err(Error::Socks4NoIPv6 { addr }.into_io());
                         }
                     };
-                    packet.write_u16::<BigEndian>(addr.port())?;
-                    packet.write_u32::<BigEndian>((*addr.ip()).into())?;
+                    packet.write_all(&addr.port().to_be_bytes())?;
+                    packet.write_all(&addr.ip().octets())?;
                     packet.write_all(userid.as_bytes())?;
-                    packet.write_u8(NULL_BYTE)?;
+                    packet.write_all(NULL_BYTE)?;
                 }
                 TargetAddr::Domain(ref host, port) => {
-                    packet.write_u16::<BigEndian>(port)?;
-                    packet.write_u32::<BigEndian>(Ipv4Addr::new(0, 0, 0, 1).into())?;
+                    packet.write_all(&port.to_be_bytes())?;
+                    packet.write_all(&Ipv4Addr::new(0, 0, 0, 1).octets())?;
                     packet.write_all(userid.as_bytes())?;
-                    packet.write_u8(NULL_BYTE)?;
-                    packet.extend(host.as_bytes());
-                    packet.write_u8(NULL_BYTE)?;
+                    packet.write_all(NULL_BYTE)?;
+                    packet.write_all(host.as_bytes())?;
+                    packet.write_all(NULL_BYTE)?;
                 }
             }
 

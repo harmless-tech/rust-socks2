@@ -466,15 +466,10 @@ pub mod udp {
         Error, Socks5Stream, TargetAddr, ToTargetAddr,
     };
     use byteorder::{BigEndian, ReadBytesExt};
-    use core::{
-        cmp,
-        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-        ptr,
-        time::Duration,
-    };
+    use core::{cmp, ptr, time::Duration};
     use std::{
         io,
-        net::{ToSocketAddrs, UdpSocket},
+        net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket},
     };
 
     /// A SOCKS5 and SOCKS5H UDP client.

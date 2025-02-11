@@ -77,9 +77,17 @@ pub enum Error {
 
 /// Takes an `std::io::Error` and attempts to unwrap it into a `socks2::Error`.
 /// Returns a `Some(&socks2::Error)` on success.
+#[inline]
 #[must_use]
 pub fn unwrap_io_to_socks2_error(e: &io::Error) -> Option<&Error> {
     e.get_ref().and_then(|i| i.downcast_ref())
+}
+
+/// Takes an `std::io::Error` and determines if it wraps a `socks2::Error`;
+#[inline]
+#[must_use]
+pub fn is_io_socks2_error(e: &io::Error) -> bool {
+    unwrap_io_to_socks2_error(e).is_some()
 }
 
 impl Error {
@@ -89,6 +97,7 @@ impl Error {
     }
 }
 
+#[cfg(test)]
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
         macro_rules! peq {

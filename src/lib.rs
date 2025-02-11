@@ -24,7 +24,7 @@ pub use v5::bind::Socks5Listener;
 #[cfg(feature = "udp")]
 pub use v5::udp::Socks5Datagram;
 
-pub use error::{unwrap_io_to_socks2_error, Error};
+pub use error::{is_io_socks2_error, unwrap_io_to_socks2_error, Error};
 
 mod error;
 #[cfg(feature = "udp")]

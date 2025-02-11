@@ -130,6 +130,7 @@ impl Authentication<'_> {
 #[cfg(feature = "client")]
 pub mod client {
     use crate::{
+        tcp_stream_connect,
         v5::{read_response, write_addr, Authentication, MAX_ADDR_LEN},
         Error, TargetAddr, ToTargetAddr,
     };
@@ -150,6 +151,14 @@ pub mod client {
     impl Socks5Stream {
         /// Connects to a target server through a SOCKS5 proxy.
         ///
+        /// # Notes
+        /// If `target` is a `TargetAddr::Domain`, the domain name will be forwarded
+        /// to the proxy server to be resolved there.
+        ///
+        /// When using `connect_timeout` the duration will apply to every socket address
+        /// tried. Only the last connection error will be returned or
+        /// `io::Error(Error::NoResolveSocketAddrs)`.
+        ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn connect<T, U>(
@@ -166,6 +175,9 @@ pub mod client {
 
         /// Connects to a target server through a SOCKS5 proxy using given
         /// username and password.
+        ///
+        /// # Notes
+        /// See `Socks5Stream::connect()`.
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
@@ -195,17 +207,7 @@ pub mod client {
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            let mut socket = match connect_timeout {
-                None => TcpStream::connect(proxy)?,
-                // TODO: Connect timeout for each address until one works?
-                Some(t) => TcpStream::connect_timeout(
-                    &proxy
-                        .to_socket_addrs()?
-                        .next()
-                        .ok_or_else(|| Error::NoResolveSocketAddr {}.into_io())?,
-                    t,
-                )?,
-            };
+            let mut socket = tcp_stream_connect(proxy, connect_timeout)?;
 
             let target = target.to_target_addr()?;
 
@@ -390,6 +392,9 @@ pub mod bind {
         /// The proxy will filter incoming connections based on the value of
         /// `target`.
         ///
+        /// # Notes
+        /// See `Socks5Stream::connect()`.
+        ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind<T, U>(
@@ -409,6 +414,9 @@ pub mod bind {
         ///
         /// The proxy will filter incoming connections based on the value of
         /// `target`.
+        ///
+        /// # Notes
+        /// See `Socks5Stream::connect()`.
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
@@ -481,6 +489,9 @@ pub mod udp {
         /// Creates a UDP socket bound to the specified address which will have its
         /// traffic routed through the specified proxy.
         ///
+        /// # Notes
+        /// See `Socks5Stream::connect()`.
+        ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
         pub fn bind<T, U>(proxy: T, addr: U, connect_timeout: Option<Duration>) -> io::Result<Self>
@@ -494,6 +505,9 @@ pub mod udp {
         /// Creates a UDP socket bound to the specified address which will have its
         /// traffic routed through the specified proxy. The given username and password
         /// is used to authenticate to the SOCKS proxy.
+        ///
+        /// # Notes
+        /// See `Socks5Stream::connect()`.
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`

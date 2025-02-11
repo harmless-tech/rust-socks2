@@ -33,11 +33,11 @@ use socks2::Socks4Stream;
 use socks2::Socks5Stream;
 use std::io::Write;
 
-let mut connection = Socks4Stream::connect(PROXY, &TARGET, "userid").unwrap();
+let mut connection = Socks4Stream::connect(PROXY, &TARGET, "userid", None).unwrap();
 let buf = [126_u8; 50]
 connection.write(&buf);
 
-let mut connection = Socks5Stream::connect(PROXY, &TARGET).unwrap();
+let mut connection = Socks5Stream::connect(PROXY, &TARGET, None).unwrap();
 let buf = [126_u8; 50]
 connection.write(&buf);
 ```
@@ -53,11 +53,11 @@ socks2 = { version = "0.4", default-features = false, features = ["bind"] }
 use socks2::Socks4Listener;
 use socks2::Socks5Listener;
 
-let mut connection = Socks4Listener::bin(PROXY, &TARGET, "userid")
+let mut connection = Socks4Listener::bind(PROXY, &TARGET, "userid", None)
     .unwrap()
     .accept();
 
-let mut connection = Socks5Listener::bind(PROXY, &TARGET)
+let mut connection = Socks5Listener::bind(PROXY, &TARGET, None)
     .unwrap()
     .accept();
 ```
@@ -73,7 +73,7 @@ socks2 = { version = "0.4", default-features = false, features = ["udp"] }
 use socks2::Socks5Datagram;
 use std::io::Write;
 
-let mut connection = Socks5Datagram::bind(PROXY, &TARGET).unwrap();
+let mut connection = Socks5Datagram::bind(PROXY, &TARGET, None).unwrap();
 let buf = [126_u8; 50]
 connection.send_to(&buf, &OTHER_ADDR);
 ```

@@ -11,9 +11,10 @@
 extern crate alloc;
 
 use alloc::vec;
+use core::time::Duration;
 use std::{
     io,
-    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream, ToSocketAddrs},
 };
 
 #[cfg(feature = "client")]
@@ -190,6 +191,30 @@ impl ToTargetAddr for &str {
         };
 
         (host, port).to_target_addr()
+    }
+}
+
+fn tcp_stream_connect<T>(proxy: T, connect_timeout: Option<Duration>) -> io::Result<TcpStream>
+where
+    T: ToSocketAddrs,
+{
+    match connect_timeout {
+        None => TcpStream::connect(proxy),
+        Some(t) => {
+            // Timeout is applied to every SocketAddr try.
+            let mut addrs = proxy.to_socket_addrs()?;
+            let mut last_err = None;
+            for addr in &mut addrs {
+                match TcpStream::connect_timeout(&addr, t) {
+                    Ok(t) => return Ok(t),
+                    Err(err) => {
+                        last_err = Some(err);
+                        continue;
+                    }
+                }
+            }
+            Err(last_err.unwrap_or_else(|| Error::NoResolveSocketAddrs {}.into_io()))
+        }
     }
 }
 

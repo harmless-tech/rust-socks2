@@ -38,6 +38,7 @@ fn read_response(socket: &mut TcpStream) -> io::Result<SocketAddrV4> {
 #[cfg(feature = "client")]
 pub mod client {
     use crate::{
+        tcp_stream_connect,
         v4::{read_response, NULL_BYTE},
         Error, TargetAddr, ToTargetAddr,
     };
@@ -59,12 +60,15 @@ pub mod client {
     impl Socks4Stream {
         /// Connects to a target server through a SOCKS4 proxy.
         ///
-        /// # Note
-        ///
+        /// # Notes
         /// If `target` is a `TargetAddr::Domain`, the domain name will be forwarded
         /// to the proxy server using the SOCKS4A protocol extension. If the proxy
         /// server does not support SOCKS4A, consider performing the DNS lookup
         /// locally and passing a `TargetAddr::Ip`.
+        ///
+        /// When using `connect_timeout` the duration will apply to every socket address
+        /// tried. Only the last connection error will be returned or
+        /// `io::Error(Error::NoResolveSocketAddrs)`.
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`
@@ -92,18 +96,7 @@ pub mod client {
             T: ToSocketAddrs,
             U: ToTargetAddr,
         {
-            let mut socket = match connect_timeout {
-                None => TcpStream::connect(proxy)?,
-                // TODO: Connect timeout for each address until one works?
-                Some(t) => TcpStream::connect_timeout(
-                    &proxy
-                        .to_socket_addrs()?
-                        .next()
-                        .ok_or_else(|| Error::NoResolveSocketAddr {}.into_io())?,
-                    t,
-                )?,
-            };
-
+            let mut socket = tcp_stream_connect(proxy, connect_timeout)?;
             let target = target.to_target_addr()?;
 
             let mut packet = vec![];
@@ -217,6 +210,9 @@ pub mod bind {
         ///
         /// The proxy will filter incoming connections based on the value of
         /// `target`.
+        ///
+        /// # Notes
+        /// See `Socks4Stream::connect()`.
         ///
         /// # Errors
         /// - `io::Error(std::io::ErrorKind::*, socks2::Error::*?)`

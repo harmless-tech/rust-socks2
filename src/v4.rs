@@ -1,5 +1,4 @@
-use crate::Error;
-use byteorder::{BigEndian, ReadBytesExt};
+use crate::{ext_bytes::BytesExt, Error};
 use std::{
     io::{
         Read, {self},
@@ -15,13 +14,13 @@ fn read_response(socket: &mut TcpStream) -> io::Result<SocketAddrV4> {
     let mut response = &response[..];
 
     {
-        let version = response.read_u8()?;
+        let version = response.read_be_u8()?;
         if version != 0 {
             return Err(Error::InvalidResponseVersion { version }.into_io());
         }
     }
 
-    match response.read_u8()? {
+    match response.read_be_u8()? {
         90 => {}
         91 => return Err(Error::ConnectionRefused { code: 91 }.into_io()),
         92 => return Err(Error::RejectedRequestID { code: 92 }.into_io()),
@@ -29,8 +28,8 @@ fn read_response(socket: &mut TcpStream) -> io::Result<SocketAddrV4> {
         code => return Err(Error::UnknownResponseCode { code }.into_io()),
     }
 
-    let port = response.read_u16::<BigEndian>()?;
-    let ip = Ipv4Addr::from(response.read_u32::<BigEndian>()?);
+    let port = response.read_be_u16()?;
+    let ip = Ipv4Addr::from(response.read_be_u32()?);
 
     Ok(SocketAddrV4::new(ip, port))
 }
@@ -294,7 +293,9 @@ mod test {
     #[test]
     #[cfg(feature = "client")]
     fn google() {
-        let mut socket = Socks4Stream::connect(PROXY_ADDR, &google_ip(), "", None).unwrap();
+        let mut socket =
+            Socks4Stream::connect(PROXY_ADDR, &google_ip(), "", Some(Duration::from_secs(25)))
+                .unwrap();
 
         socket.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
         let mut result = vec![];
@@ -313,7 +314,7 @@ mod test {
             PROXY_ADDR,
             &"google.com:80",
             "",
-            Some(Duration::from_secs(10)),
+            Some(Duration::from_secs(25)),
         )
         .unwrap();
 

@@ -33,8 +33,9 @@ pub use v5::udp::Socks5Datagram;
 pub use error::{is_io_socks2_error, unwrap_io_to_socks2_error, Error};
 
 mod error;
+mod ext_bytes;
 #[cfg(feature = "udp")]
-mod io_ext;
+mod ext_io;
 #[cfg(any(feature = "client", feature = "bind"))]
 mod v4;
 #[cfg(any(feature = "client", feature = "bind", feature = "udp"))]
@@ -207,10 +208,7 @@ where
             for addr in &mut addrs {
                 match TcpStream::connect_timeout(&addr, t) {
                     Ok(t) => return Ok(t),
-                    Err(err) => {
-                        last_err = Some(err);
-                        continue;
-                    }
+                    Err(err) => last_err = Some(err),
                 }
             }
             Err(last_err.unwrap_or_else(|| Error::NoResolveSocketAddrs {}.into_io()))

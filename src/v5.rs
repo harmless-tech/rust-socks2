@@ -1,5 +1,4 @@
-use crate::{Error, TargetAddr};
-use byteorder::{BigEndian, ReadBytesExt};
+use crate::{ext_bytes::BytesExt, Error, TargetAddr};
 use std::{
     io::{
         Read, Write, {self},
@@ -10,26 +9,26 @@ use std::{
 const MAX_ADDR_LEN: usize = 260;
 
 fn read_addr<R: Read>(socket: &mut R) -> io::Result<TargetAddr> {
-    match socket.read_u8()? {
+    match socket.read_be_u8()? {
         1 => {
-            let ip = Ipv4Addr::from(socket.read_u32::<BigEndian>()?);
-            let port = socket.read_u16::<BigEndian>()?;
+            let ip = Ipv4Addr::from(socket.read_be_u32()?);
+            let port = socket.read_be_u16()?;
             Ok(TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(ip, port))))
         }
         3 => {
-            let len = socket.read_u8()?;
+            let len = socket.read_be_u8()?;
             let mut domain = vec![0; len as usize];
             socket.read_exact(&mut domain)?;
             let domain = String::from_utf8(domain)
                 .map_err(|err| Error::MalformedDomain { err }.into_io())?;
-            let port = socket.read_u16::<BigEndian>()?;
+            let port = socket.read_be_u16()?;
             Ok(TargetAddr::Domain(domain, port))
         }
         4 => {
             let mut ip = [0; 16];
             socket.read_exact(&mut ip)?;
             let ip = Ipv6Addr::from(ip);
-            let port = socket.read_u16::<BigEndian>()?;
+            let port = socket.read_be_u16()?;
             Ok(TargetAddr::Ip(SocketAddr::V6(SocketAddrV6::new(
                 ip, port, 0, 0,
             ))))
@@ -40,13 +39,13 @@ fn read_addr<R: Read>(socket: &mut R) -> io::Result<TargetAddr> {
 
 fn read_response(socket: &mut TcpStream) -> io::Result<TargetAddr> {
     {
-        let version = socket.read_u8()?;
+        let version = socket.read_be_u8()?;
         if version != 5 {
             return Err(Error::InvalidResponseVersion { version }.into_io());
         }
     }
 
-    match socket.read_u8()? {
+    match socket.read_be_u8()? {
         0 => {}
         1 => return Err(Error::UnknownServerFailure { code: 1 }.into_io()),
         2 => return Err(Error::ServerRefusedByRuleSet {}.into_io()),
@@ -60,7 +59,7 @@ fn read_response(socket: &mut TcpStream) -> io::Result<TargetAddr> {
     }
 
     {
-        let byte = socket.read_u8()?;
+        let byte = socket.read_be_u8()?;
         if byte != 0 {
             return Err(Error::InvalidReservedByte { byte }.into_io());
         }
@@ -461,11 +460,11 @@ pub mod bind {
 #[cfg(feature = "udp")]
 pub mod udp {
     use crate::{
-        io_ext::IOVecExt,
+        ext_bytes::BytesExt,
+        ext_io::IOVecExt,
         v5::{read_addr, write_addr, Authentication, MAX_ADDR_LEN},
         Error, Socks5Stream, TargetAddr, ToTargetAddr,
     };
-    use byteorder::{BigEndian, ReadBytesExt};
     use core::{cmp, ptr, time::Duration};
     use std::{
         io,
@@ -584,13 +583,13 @@ pub mod udp {
             let mut header = &mut &header[..header_len];
 
             {
-                let bytes = header.read_u16::<BigEndian>()?;
+                let bytes = header.read_be_u16()?;
                 if bytes != 0 {
                     return Err(Error::InvalidReservedBytes { bytes }.into());
                 }
             }
             {
-                let fid = header.read_u8()?;
+                let fid = header.read_be_u8()?;
                 if fid != 0 {
                     return Err(Error::InvalidFragmentID { fid }.into_io());
                 }
@@ -653,7 +652,7 @@ mod test {
         let socket = Socks5Stream::connect(
             SOCKS_PROXY_NO_AUTH_ONLY,
             &addr,
-            Some(Duration::from_secs(10)),
+            Some(Duration::from_secs(25)),
         )
         .unwrap();
         google(socket);
@@ -704,7 +703,12 @@ mod test {
     #[cfg(feature = "bind")]
     fn bind_no_auth() {
         let addr = find_address();
-        let listener = Socks5Listener::bind(SOCKS_PROXY_NO_AUTH_ONLY, &addr, None).unwrap();
+        let listener = Socks5Listener::bind(
+            SOCKS_PROXY_NO_AUTH_ONLY,
+            &addr,
+            Some(Duration::from_secs(25)),
+        )
+        .unwrap();
         bind(listener);
     }
 

@@ -1,7 +1,9 @@
 use crate::{Error, TargetAddr};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
-    io::{self, Read, Write},
+    io::{
+        Read, Write, {self},
+    },
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, TcpStream},
 };
 
@@ -131,11 +133,11 @@ pub mod client {
         v5::{read_response, write_addr, Authentication, MAX_ADDR_LEN},
         Error, TargetAddr, ToTargetAddr,
     };
+    use core::time::Duration;
     use std::{
         io,
         io::{Read, Write},
         net::{TcpStream, ToSocketAddrs},
-        time::Duration,
     };
 
     /// A SOCKS5 and SOCKS5H client.
@@ -375,7 +377,8 @@ pub mod bind {
         v5::{read_response, Authentication},
         Socks5Stream, TargetAddr, ToTargetAddr,
     };
-    use std::{io, net::ToSocketAddrs, time::Duration};
+    use core::time::Duration;
+    use std::{io, net::ToSocketAddrs};
 
     /// A SOCKS5 and SOCKS5H BIND client.
     #[derive(Debug)]
@@ -455,11 +458,15 @@ pub mod udp {
         Error, Socks5Stream, TargetAddr, ToTargetAddr,
     };
     use byteorder::{BigEndian, ReadBytesExt};
-    use std::{
-        cmp, io,
-        net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket},
+    use core::{
+        cmp,
+        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
         ptr,
         time::Duration,
+    };
+    use std::{
+        io,
+        net::{ToSocketAddrs, UdpSocket},
     };
 
     /// A SOCKS5 and SOCKS5H UDP client.
@@ -618,12 +625,13 @@ mod test {
     use super::client::*;
     #[cfg(feature = "udp")]
     use super::udp::*;
+
     use super::*;
     use crate::unwrap_io_to_socks2_error;
+    use core::time::Duration;
     use std::{
         io::{Read, Write},
         net::{TcpStream, ToSocketAddrs, UdpSocket},
-        time::Duration,
     };
 
     const SOCKS_PROXY_NO_AUTH_ONLY: &str = "127.0.0.1:1084";

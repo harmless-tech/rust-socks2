@@ -3,14 +3,19 @@
 #![deny(clippy::all)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
+#![deny(clippy::std_instead_of_core)]
+#![deny(clippy::std_instead_of_alloc)]
+#![deny(clippy::alloc_instead_of_core)]
 #![warn(missing_docs)]
 
+extern crate alloc;
+
+use alloc::vec;
 use std::{
-    fmt::Formatter,
     io,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
-    vec,
 };
+
 #[cfg(feature = "client")]
 pub use v4::client::Socks4Stream;
 #[cfg(feature = "client")]
@@ -46,8 +51,8 @@ pub enum TargetAddr {
     Domain(String, u16),
 }
 
-impl std::fmt::Display for TargetAddr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for TargetAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Ip(addr) => write!(f, "{addr}"),
             Self::Domain(domain, port) => write!(f, "{domain}:{port}"),

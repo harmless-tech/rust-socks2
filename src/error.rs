@@ -1,4 +1,5 @@
-use std::{fmt::Formatter, io, net::SocketAddrV6, string::FromUtf8Error};
+use alloc::string::FromUtf8Error;
+use std::{io, net::SocketAddrV6};
 
 /// Errors from socks2
 ///
@@ -185,8 +186,8 @@ impl From<Error> for io::Error {
 
 impl std::error::Error for Error {}
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::InvalidSocksAddress { addr } => write!(f, "invalid socket address '{addr}'"),
             Self::InvalidPortValue { addr, port } => {

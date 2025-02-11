@@ -1,7 +1,9 @@
 use crate::Error;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::{
-    io::{self, Read},
+    io::{
+        Read, {self},
+    },
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
 };
 
@@ -40,11 +42,11 @@ pub mod client {
         Error, TargetAddr, ToTargetAddr,
     };
     use byteorder::{BigEndian, WriteBytesExt};
+    use core::time::Duration;
     use std::{
         io,
         io::{Read, Write},
         net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
-        time::Duration,
     };
 
     /// A SOCKS4 and SOCKS4A client.
@@ -200,10 +202,10 @@ pub mod bind {
         v4::{client::Socks4Stream, read_response},
         ToTargetAddr,
     };
+    use core::time::Duration;
     use std::{
         io,
         net::{SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
-        time::Duration,
     };
 
     /// A SOCKS4 and SOCKS4A BIND client.
@@ -274,10 +276,11 @@ mod test {
     use super::bind::*;
     #[cfg(feature = "client")]
     use super::client::*;
+
+    use core::time::Duration;
     use std::{
         io::{Read, Write},
         net::{SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs},
-        time::Duration,
     };
 
     const PROXY_ADDR: &str = "127.0.0.1:1084";

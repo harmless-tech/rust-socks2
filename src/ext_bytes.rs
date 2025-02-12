@@ -1,3 +1,4 @@
+use core::mem::size_of;
 use std::io;
 
 pub trait BytesExt: io::Read {

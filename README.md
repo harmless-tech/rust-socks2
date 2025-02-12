@@ -77,3 +77,12 @@ let mut connection = Socks5Datagram::bind(PROXY, &TARGET, None).unwrap();
 let buf = [126_u8; 50]
 connection.send_to(&buf, &OTHER_ADDR);
 ```
+## Versioning
+
+socks2 follows Major Zero Semver.
+The major version is always zero.
+Every minor version contains breaking changes.
+Every patch version will be backwards compatible.
+
+Alpha, Betas, and Release Candidates may contain breaking changes
+between any version.

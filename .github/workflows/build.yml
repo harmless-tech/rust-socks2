@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust-version: [ stable, beta, nightly, 1.65 ]
+        rust-version: [ stable, beta, nightly, 1.65 ] # Stable, Beta, Nightly, MSRV
         info:
           - os: macos-latest
           - os: ubuntu-latest

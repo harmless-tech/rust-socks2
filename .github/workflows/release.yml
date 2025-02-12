@@ -30,6 +30,24 @@ jobs:
           text: ${{ github.ref }}
           regex: '^refs\/tags\/v\d+\.\d+\.\d+$'
 
+  cargo-semver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: stable
+      - uses: cargo-prebuilt/cargo-prebuilt-action@v4
+        with:
+          pkgs: cargo-semver-checks
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-semver
+      - name: Semver Checks
+        run: cargo +${{steps.toolchain.outputs.name}} semver-checks
 
   publish-crates-io:
     if: ${{ ! contains(github.ref, '-dev') }}
@@ -37,6 +55,7 @@ jobs:
     environment: release
     needs:
       - release
+      - cargo-semver
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - release
+      - cargo-semver
     steps:
       - uses: actions/checkout@v4
         with:

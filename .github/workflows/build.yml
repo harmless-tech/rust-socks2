@@ -3,8 +3,20 @@ name: Rust Build and Test
 on:
   push:
     branches: [ main ]
+    paths:
+      - .github/workflows/build.yml
+      - src/**
+      - test/**
+      - Cargo.lock
+      - Cargo.toml
   pull_request:
     branches: [ main ]
+    paths:
+      - .github/workflows/build.yml
+      - src/**
+      - test/**
+      - Cargo.lock
+      - Cargo.toml
   workflow_dispatch:
 
 concurrency:
@@ -95,7 +107,7 @@ jobs:
           toolchain: ${{ matrix.rust-version }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: test-client
+          key: test-all
       - name: Test Setup
         run: ./test/github/${{ matrix.info.os }}-setup.sh
       - name: Test

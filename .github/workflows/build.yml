@@ -25,7 +25,6 @@ concurrency:
 
 permissions: { }
 
-# TODO: Build for 32 bit windows and linux?
 jobs:
   build-versions:
     strategy:
@@ -34,8 +33,14 @@ jobs:
         rust-version: [ stable, beta, nightly, 1.65 ] # Stable, Beta, Nightly, MSRV
         info:
           - os: macos-latest
+            target1: aarch64-apple-darwin
+            target2: x86_64-apple-darwin
           - os: ubuntu-latest
+            target1: x86_64-unknown-linux-gnu
+            target2: i686-unknown-linux-gnu
           - os: windows-latest
+            target1: x86_64-pc-windows-msvc
+            target2: i686-pc-windows-msvc
     runs-on: ${{ matrix.info.os }}
     steps:
       - uses: actions/checkout@v4
@@ -45,11 +50,18 @@ jobs:
         id: toolchain
         with:
           toolchain: ${{ matrix.rust-version }}
+          targets: ${{ matrix.info.target1 }},${{ matrix.info.target2 }}
       - uses: Swatinem/rust-cache@v2
-      - name: Build
-        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace
-      - name: Build release
-        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --release
+        with:
+          key: ${{ matrix.info.target1 }}+${{ matrix.info.target2 }}
+      - name: Build (1)
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --target ${{ matrix.info.target1 }}
+      - name: Build release (1)
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --release --target ${{ matrix.info.target1 }}
+      - name: Build (2)
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --target ${{ matrix.info.target2 }}
+      - name: Build release (2)
+        run: cargo +${{steps.toolchain.outputs.name}} build --verbose --workspace --release --target ${{ matrix.info.target2 }}
 
   build-ink-cross:
     strategy:

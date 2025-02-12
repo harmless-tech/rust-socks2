@@ -43,9 +43,6 @@ jobs:
       - uses: cargo-prebuilt/cargo-prebuilt-action@v4
         with:
           pkgs: cargo-semver-checks
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: cargo-semver
       - name: Semver Checks
         run: cargo +${{steps.toolchain.outputs.name}} semver-checks
 

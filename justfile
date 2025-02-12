@@ -69,3 +69,11 @@ msrv-verify:
     --entrypoint=/bin/bash \
     ghcr.io/cargo-prebuilt/ink-cross:stable-native \
     -c 'cargo prebuilt --ci cargo-msrv && cargo msrv verify -- cargo check --verbose --release'
+
+semver-checks:
+    docker run -it --rm --pull=always \
+    --mount type=bind,source={{pwd}},target=/project \
+    --mount type=bind,source=$HOME/.cargo/registry,target=/usr/local/cargo/registry \
+    --entrypoint=/bin/bash \
+    ghcr.io/cargo-prebuilt/ink-cross:stable-native \
+    -c 'cargo prebuilt --ci cargo-semver-checks && cargo semver-checks'
